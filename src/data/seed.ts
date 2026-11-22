@@ -1,29 +1,56 @@
-import { ActorProfile, LeaveBalance, LeaveRequest, Memo, Role } from "@/types/eoffice";
+import {
+  ActorProfile,
+  Announcement,
+  EOfficeDatabase,
+  LeaveBalance,
+  LeaveRequest,
+  Memo,
+  Role,
+  RoomBooking,
+} from "@/types/eoffice";
 
 export const ACTORS: Record<Role, ActorProfile> = {
   requester: {
     role: "requester",
+    empId: "EMP-69014",
+    username: "tanapat.s",
+    email: "tanapat.s@eoffice.local",
+    phone: "02-123-4500 ต่อ 402",
     name: "ธนภัทร สายพัฒน์",
-    title: "นักวิชาการคอมพิวเตอร์ (ผู้ยื่นเรื่อง)",
+    title: "นักวิชาการคอมพิวเตอร์ (ผู้ยื่นเรื่อง / Requester)",
     department: "ฝ่ายพัฒนาระบบดิจิทัล",
     badgeColor: "bg-blue-600",
-    description: "สร้างบันทึกข้อความ แก้ไขงานที่ถูกตีกลับ และยื่นใบลาออนไลน์",
+    description:
+      "สร้างบันทึกข้อความ แนบไฟล์ แก้ไขงานที่ถูกตีกลับ ยื่นใบลา และจองห้องประชุม",
+    signatureText: "ธนภัทร สายพัฒน์",
   },
   clerk: {
     role: "clerk",
+    empId: "EMP-69005",
+    username: "pimchanok.w",
+    email: "saraban@eoffice.local",
+    phone: "02-123-4500 ต่อ 101",
     name: "พิมพ์ชนก วงศ์สวัสดิ์",
     title: "เจ้าหน้าที่สารบรรณกลาง (Clerk)",
     department: "สำนักบริหารกลาง",
     badgeColor: "bg-amber-600",
-    description: "ตรวจสอบรูปแบบบันทึกข้อความ ออกเลขทะเบียนหนังสือ (บค xxx/2569) หรือตีกลับให้แก้ไข",
+    description:
+      "ตรวจสอบรูปแบบบันทึกข้อความ ลงทะเบียนออกเลขหนังสือ (บค xxx/2569) หรือตีกลับให้แก้ไข",
+    signatureText: "พิมพ์ชนก วงศ์สวัสดิ์",
   },
   approver: {
     role: "approver",
+    empId: "EMP-69001",
+    username: "kittipong.c",
+    email: "director.it@eoffice.local",
+    phone: "02-123-4500 ต่อ 400",
     name: "ดร.กิตติพงศ์ เจริญผล",
-    title: "ผู้อำนวยการฝ่าย (Approver)",
+    title: "ผู้อำนวยการฝ่าย (ผู้มีอำนาจอนุมัติ / Approver)",
     department: "ฝ่ายพัฒนาระบบดิจิทัล",
     badgeColor: "bg-emerald-600",
-    description: "พิจารณาอนุมัติ ไม่อนุมัติ หรือส่งกลับแก้ไข ทั้งบันทึกข้อความและใบลาพนักงาน",
+    description:
+      "พิจารณาลงนามอนุมัติ (e-Signature) ไม่อนุมัติ หรือส่งกลับแก้ไข ทั้งบันทึกข้อความและใบลา",
+    signatureText: "ดร.กิตติพงศ์ เจริญผล",
   },
 };
 
@@ -41,6 +68,7 @@ export const INITIAL_MEMOS: Memo[] = [
     content:
       "เนื่องจากอุปกรณ์กระจายสัญญาณเครือข่ายหลักในห้อง Data Center มีอายุการใช้งานเกิน 5 ปี จึงขออนุมัติจัดซื้ออุปกรณ์ Switch Layer 3 จำนวน 2 ชุด และเครื่องเซิร์ฟเวอร์สำรอง 1 เครื่อง เพื่อเพิ่มเสถียรภาพของระบบ E-Office ภายในองค์กร",
     attachmentName: "ใบเสนอราคา_Network_Server_2569.pdf",
+    attachmentSize: "1.4 MB",
     budgetAmount: 145000,
     status: "Pending Clerk",
     auditTrail: [
@@ -77,6 +105,7 @@ export const INITIAL_MEMOS: Memo[] = [
     content:
       "ขออนุมัติจัดโครงการอบรมความรู้ด้านความมั่นคงปลอดภัยไซเบอร์ (Phishing & Password Security) ให้แก่พนักงานทุกแผนก จำนวน 80 คน ในวันที่ 5 ธันวาคม 2569 ณ ห้องประชุมใหญ่ ชั้น 3",
     attachmentName: "กำหนดการอบรม_Cybersecurity_2569.pdf",
+    attachmentSize: "840 KB",
     budgetAmount: 35000,
     status: "Pending Approval",
     auditTrail: [
@@ -93,7 +122,8 @@ export const INITIAL_MEMOS: Memo[] = [
         timestamp: "16 พ.ย. 2569 14:10",
         actorName: "พิมพ์ชนก วงศ์สวัสดิ์",
         actorRole: "clerk",
-        action: "ตรวจสอบรูปแบบถูกต้อง ออกเลขทะเบียน บค 042/2569 และส่งต่อผู้บริหาร",
+        action:
+          "ตรวจสอบรูปแบบถูกต้อง ออกเลขทะเบียน บค 042/2569 และส่งต่อผู้บริหาร",
         statusAfter: "Pending Approval",
         comment: "เอกสารครบถ้วนตามระเบียบงานสารบรรณ",
       },
@@ -112,9 +142,11 @@ export const INITIAL_MEMOS: Memo[] = [
     content:
       "ขออนุมัติเบิกค่าพาหนะและค่าที่พักสำหรับการเดินทางไปติดตั้งระบบ E-Office ณ สำนักงานสาขาเชียงใหม่ ระหว่างวันที่ 10-12 พฤศจิกายน 2569 รวมเป็นเงินทั้งสิ้น 12,400 บาท",
     attachmentName: "ใบเสร็จค่าที่พักและเดินทาง.pdf",
+    attachmentSize: "2.1 MB",
     budgetAmount: 12400,
     status: "Returned for Revision",
-    revisionNote: "กรุณาระบุเลขที่คำสั่งเดินทางไปราชการในเนื้อหาบันทึกข้อความ และแนบสรุปรายงานผลการเดินทางเพิ่มเติมค่ะ",
+    revisionNote:
+      "กรุณาระบุเลขที่คำสั่งเดินทางไปราชการในเนื้อหาบันทึกข้อความ และแนบสรุปรายงานผลการเดินทางเพิ่มเติมค่ะ",
     auditTrail: [
       {
         id: "AUD-301",
@@ -131,7 +163,8 @@ export const INITIAL_MEMOS: Memo[] = [
         actorRole: "clerk",
         action: "ส่งกลับให้ผู้ยื่นเรื่องแก้ไข (Returned for Revision)",
         statusAfter: "Returned for Revision",
-        comment: "กรุณาระบุเลขที่คำสั่งเดินทางไปราชการในเนื้อหาบันทึกข้อความ และแนบสรุปรายงานผลการเดินทางเพิ่มเติมค่ะ",
+        comment:
+          "กรุณาระบุเลขที่คำสั่งเดินทางไปราชการในเนื้อหาบันทึกข้อความ และแนบสรุปรายงานผลการเดินทางเพิ่มเติมค่ะ",
       },
     ],
   },
@@ -149,7 +182,11 @@ export const INITIAL_MEMOS: Memo[] = [
     content:
       "ตามที่ฝ่ายพัฒนาระบบดิจิทัลได้ดำเนินการออกแบบและพัฒนาต้นแบบระบบ E-Office เพื่อลดการใช้กระดาษภายในองค์กร บัดนี้การทดสอบ UAT ร่วมกับตัวแทนแผนกต่างๆ เสร็จสิ้นแล้ว ได้ผลความพึงพอใจร้อยละ 94.5 จึงเรียนมาเพื่อโปรดทราบและอนุมัติเปิดใช้งานจริง",
     attachmentName: "สรุปผล_UAT_EOffice_Phase1.pdf",
+    attachmentSize: "3.2 MB",
     status: "Approved",
+    signedBy: "ดร.กิตติพงศ์ เจริญผล",
+    signedAt: "13 พ.ย. 2569 16:20",
+    approverCommand: "ทราบและอนุมัติให้ดำเนินการเปิดใช้งานเฟสถัดไปได้",
     auditTrail: [
       {
         id: "AUD-401",
@@ -172,7 +209,7 @@ export const INITIAL_MEMOS: Memo[] = [
         timestamp: "13 พ.ย. 2569 16:20",
         actorName: "ดร.กิตติพงศ์ เจริญผล",
         actorRole: "approver",
-        action: "อนุมัติบันทึกข้อความ (Approved)",
+        action: "ลงนามอนุมัติบันทึกข้อความด้วยลายมือชื่ออิเล็กทรอนิกส์ (Approved)",
         statusAfter: "Approved",
         comment: "ทราบและอนุมัติให้ดำเนินการเปิดใช้งานเฟสถัดไปได้",
       },
@@ -210,7 +247,8 @@ export const INITIAL_LEAVES: LeaveRequest[] = [
     startDate: "2026-11-26",
     endDate: "2026-11-27",
     days: 2,
-    reason: "เดินทางไปพักผ่อนกับครอบครัวต่างจังหวัด (ส่งมอบงานระหว่างลาให้ทีมเรียบร้อยแล้ว)",
+    reason:
+      "เดินทางไปพักผ่อนกับครอบครัวต่างจังหวัด (ส่งมอบงานระหว่างลาให้ทีมเรียบร้อยแล้ว)",
     status: "Pending Approval",
     createdAt: "17 พ.ย. 2569 10:00",
     auditTrail: [
@@ -219,7 +257,8 @@ export const INITIAL_LEAVES: LeaveRequest[] = [
         timestamp: "17 พ.ย. 2569 10:00",
         actorName: "ธนภัทร สายพัฒน์",
         actorRole: "requester",
-        action: "ยื่นใบลาพักผ่อน 2 วัน (ส่งตรงถึงหัวหน้างานโดยไม่ผ่านสารบรรณ)",
+        action:
+          "ยื่นใบลาพักผ่อน 2 วัน (ส่งตรงถึงหัวหน้างานโดยไม่ผ่านสารบรรณ)",
         statusAfter: "Pending Approval",
       },
     ],
@@ -257,3 +296,70 @@ export const INITIAL_LEAVES: LeaveRequest[] = [
     ],
   },
 ];
+
+export const INITIAL_BOOKINGS: RoomBooking[] = [
+  {
+    id: "BOOK-001",
+    roomName: "ห้องประชุมใหญ่ Smart Auditorium",
+    floor: "ชั้น 3 อาคารสำนักงานใหญ่",
+    capacity: 80,
+    title: "ประชุมเตรียมความพร้อมเปิดตัวระบบ E-Office ทั่วองค์กร",
+    date: "2026-11-24",
+    startTime: "09:30",
+    endTime: "12:00",
+    bookedBy: "ธนภัทร สายพัฒน์",
+    department: "ฝ่ายพัฒนาระบบดิจิทัล",
+    attendees: 45,
+    equipment: "จอ LED Wall, ระบบประชุมทางไกล Zoom, ไมโครโฟนไร้สาย 4 ตัว",
+    status: "Confirmed",
+  },
+  {
+    id: "BOOK-002",
+    roomName: "ห้องประชุม Digital War Room",
+    floor: "ชั้น 4 ฝ่ายพัฒนาระบบดิจิทัล",
+    capacity: 16,
+    title: "ทบทวนสถาปัตยกรรมระบบสารบรรณอิเล็กทรอนิกส์ (Flow & Stack Review)",
+    date: "2026-11-24",
+    startTime: "13:30",
+    endTime: "15:30",
+    bookedBy: "ดร.กิตติพงศ์ เจริญผล",
+    department: "ฝ่ายพัฒนาระบบดิจิทัล",
+    attendees: 10,
+    equipment: "กระดานอัจฉริยะ Smart Board, โปรเจกเตอร์ 4K",
+    status: "Confirmed",
+  },
+];
+
+export const INITIAL_ANNOUNCEMENTS: Announcement[] = [
+  {
+    id: "ANN-001",
+    title: "ประกาศเริ่มใช้งานระบบสารบรรณอิเล็กทรอนิกส์ (E-Office) เต็มรูปแบบ",
+    category: "ประกาศสำคัญ",
+    content:
+      "ตั้งแต่วันที่ 1 ธันวาคม 2569 เป็นต้นไป ให้ทุกหน่วยงานยื่นบันทึกข้อความภายในองค์กรและใบลาผ่านระบบ E-Office 100% เพื่อลดการใช้กระดาษและสามารถติดตามสถานะการอนุมัติได้แบบ Real-time",
+    authorName: "สำนักบริหารกลาง",
+    department: "สำนักบริหารกลาง",
+    postedAt: "17 พ.ย. 2569",
+    pinned: true,
+  },
+  {
+    id: "ANN-002",
+    title: "มาตรฐานการออกเลขทะเบียนหนังสือราชการอิเล็กทรอนิกส์ (บค xxx/2569)",
+    category: "นโยบายไอที",
+    content:
+      "บันทึกข้อความทุกฉบับที่สร้างโดยพนักงาน (Requester) จะต้องผ่านเจ้าหน้าที่สารบรรณ (Clerk) เพื่อตรวจสอบความถูกต้องและออกเลขทะเบียนก่อนส่งถึงผู้อำนวยการฝ่าย (Approver)",
+    authorName: "พิมพ์ชนก วงศ์สวัสดิ์",
+    department: "สำนักบริหารกลาง",
+    postedAt: "15 พ.ย. 2569",
+    pinned: false,
+  },
+];
+
+export const INITIAL_DB: EOfficeDatabase = {
+  docRunningNumber: 43,
+  memos: INITIAL_MEMOS,
+  leaves: INITIAL_LEAVES,
+  leaveBalance: INITIAL_LEAVE_BALANCE,
+  bookings: INITIAL_BOOKINGS,
+  announcements: INITIAL_ANNOUNCEMENTS,
+};

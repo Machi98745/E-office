@@ -2,11 +2,16 @@ export type Role = "requester" | "clerk" | "approver";
 
 export interface ActorProfile {
   role: Role;
+  empId: string;
+  username: string;
+  email: string;
+  phone: string;
   name: string;
   title: string;
   department: string;
   badgeColor: string;
   description: string;
+  signatureText: string;
 }
 
 export type MemoStatus =
@@ -48,9 +53,13 @@ export interface Memo {
   updatedAt: string;
   content: string;
   attachmentName?: string;
+  attachmentSize?: string;
   budgetAmount?: number;
   status: MemoStatus;
   revisionNote?: string;
+  signedBy?: string;
+  signedAt?: string;
+  approverCommand?: string;
   auditTrail: AuditEntry[];
 }
 
@@ -81,3 +90,39 @@ export interface LeaveQuota {
 }
 
 export type LeaveBalance = Record<LeaveType, LeaveQuota>;
+
+export interface RoomBooking {
+  id: string;
+  roomName: string;
+  floor: string;
+  capacity: number;
+  title: string;
+  date: string;
+  startTime: string;
+  endTime: string;
+  bookedBy: string;
+  department: string;
+  attendees: number;
+  equipment: string;
+  status: "Confirmed" | "Pending";
+}
+
+export interface Announcement {
+  id: string;
+  title: string;
+  category: "ประกาศสำคัญ" | "นโยบายไอที" | "กิจกรรมองค์กร";
+  content: string;
+  authorName: string;
+  department: string;
+  postedAt: string;
+  pinned?: boolean;
+}
+
+export interface EOfficeDatabase {
+  docRunningNumber: number;
+  memos: Memo[];
+  leaves: LeaveRequest[];
+  leaveBalance: LeaveBalance;
+  bookings: RoomBooking[];
+  announcements: Announcement[];
+}
