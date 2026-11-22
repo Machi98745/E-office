@@ -30,6 +30,11 @@ export type MemoCategory =
 
 export type UrgencyLevel = "ปกติ" | "ด่วน" | "ด่วนที่สุด";
 
+export interface Attachment {
+  name: string;
+  size?: string;
+}
+
 export interface AuditEntry {
   id: string;
   timestamp: string;
@@ -52,8 +57,7 @@ export interface Memo {
   createdAt: string;
   updatedAt: string;
   content: string;
-  attachmentName?: string;
-  attachmentSize?: string;
+  attachment?: Attachment;
   budgetAmount?: number;
   status: MemoStatus;
   revisionNote?: string;
@@ -82,14 +86,14 @@ export interface LeaveRequest {
   auditTrail: AuditEntry[];
 }
 
-export interface LeaveQuota {
+export interface LeaveBalanceItem {
   label: string;
   total: number;
   used: number;
   color: string;
 }
 
-export type LeaveBalance = Record<LeaveType, LeaveQuota>;
+export type LeaveBalance = Record<LeaveType, LeaveBalanceItem>;
 
 export interface RoomBooking {
   id: string;
@@ -107,10 +111,15 @@ export interface RoomBooking {
   status: "Confirmed" | "Pending";
 }
 
+export type AnnouncementCategory =
+  | "ประกาศสำคัญ"
+  | "นโยบายไอที"
+  | "กิจกรรมองค์กร";
+
 export interface Announcement {
   id: string;
   title: string;
-  category: "ประกาศสำคัญ" | "นโยบายไอที" | "กิจกรรมองค์กร";
+  category: AnnouncementCategory;
   content: string;
   authorName: string;
   department: string;

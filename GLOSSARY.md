@@ -1,17 +1,17 @@
 # E-Office
 
-An internal electronic office system for submitting, routing, and approving organizational documents and employee leave requests.
+An internal electronic office system for submitting, routing, and approving organizational documents, employee leave requests, meeting room reservations, and internal announcements.
 
 ## Language
 
 ### Actors & Roles
 
 **Requester**:
-An employee who drafts and submits a Memo or Leave Request into an approval workflow.
+An employee who drafts and submits a Memo or Leave Request into an approval workflow, or reserves a meeting room.
 _Avoid_: User, staff, sender
 
 **Approver**:
-A supervisor or manager authorized to review, approve, reject, or return a pending submission in the approval chain.
+A supervisor or director authorized to review, approve with an Electronic Signature, reject, or return a pending submission in the approval chain.
 _Avoid_: Boss, admin, reviewer
 
 **Clerk**:
@@ -25,21 +25,33 @@ An internal official document (บันทึกข้อความ) created 
 _Avoid_: Document, letter, form, ticket
 
 **Document Number**:
-An official registration code (เลขทะเบียนหนังสือ, e.g., `บค 001/2569`) assigned by a Clerk when a Memo passes initial verification.
-_Avoid_: ID, reference code, serial number
+An official registration code (เลขทะเบียนหนังสือ, e.g., `บค 042/2569`) assigned by a Clerk when a Memo passes initial verification.
+_Avoid_: ID, reference code, serial number, docNo
+
+**Electronic Signature**:
+A verified digital sign-off (ลายมือชื่ออิเล็กทรอนิกส์ / e-Signature) applied by an Approver when approving a Memo, recording the signer's identity, command, and timestamp for official PDF printing.
+_Avoid_: Stamp, autograph
 
 **Leave Request**:
 A formal submission by a Requester to take time off (e.g., sick leave, vacation, personal leave) requiring direct Approver sign-off without Clerk registration.
 _Avoid_: Absence form, time-off ticket
 
 **Leave Balance**:
-The remaining number of allowed days per leave category (Sick, Personal, Vacation) for a Requester, automatically deducted when a Leave Request is approved.
+The remaining number of allowed days per leave category (Sick, Personal, Vacation) for a Requester, validated on submission and automatically deducted when a Leave Request is approved.
 _Avoid_: Quota, allowance, days left
+
+**Room Booking**:
+A scheduled reservation of an organizational meeting room by an actor for a specific date, time window, and attendee count.
+_Avoid_: Event, calendar slot
+
+**Announcement**:
+An official organization-wide notice or policy update published to the E-Office board.
+_Avoid_: News post, blog, message
 
 ### Workflow & Tracking
 
 **Inbox**:
-A role-specific queue displaying Memos and Leave Requests that currently await action from the active actor.
+A role-specific queue displaying only the Memos and Leave Requests that currently await action from the active actor.
 _Avoid_: Todo list, notification feed, task board
 
 **Returned for Revision**:

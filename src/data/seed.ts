@@ -67,8 +67,10 @@ export const INITIAL_MEMOS: Memo[] = [
     updatedAt: "17 พ.ย. 2569 09:20",
     content:
       "เนื่องจากอุปกรณ์กระจายสัญญาณเครือข่ายหลักในห้อง Data Center มีอายุการใช้งานเกิน 5 ปี จึงขออนุมัติจัดซื้ออุปกรณ์ Switch Layer 3 จำนวน 2 ชุด และเครื่องเซิร์ฟเวอร์สำรอง 1 เครื่อง เพื่อเพิ่มเสถียรภาพของระบบ E-Office ภายในองค์กร",
-    attachmentName: "ใบเสนอราคา_Network_Server_2569.pdf",
-    attachmentSize: "1.4 MB",
+    attachment: {
+      name: "ใบเสนอราคา_Network_Server_2569.pdf",
+      size: "1.4 MB",
+    },
     budgetAmount: 145000,
     status: "Pending Clerk",
     auditTrail: [
@@ -104,8 +106,10 @@ export const INITIAL_MEMOS: Memo[] = [
     updatedAt: "16 พ.ย. 2569 14:10",
     content:
       "ขออนุมัติจัดโครงการอบรมความรู้ด้านความมั่นคงปลอดภัยไซเบอร์ (Phishing & Password Security) ให้แก่พนักงานทุกแผนก จำนวน 80 คน ในวันที่ 5 ธันวาคม 2569 ณ ห้องประชุมใหญ่ ชั้น 3",
-    attachmentName: "กำหนดการอบรม_Cybersecurity_2569.pdf",
-    attachmentSize: "840 KB",
+    attachment: {
+      name: "กำหนดการอบรม_Cybersecurity_2569.pdf",
+      size: "840 KB",
+    },
     budgetAmount: 35000,
     status: "Pending Approval",
     auditTrail: [
@@ -141,8 +145,10 @@ export const INITIAL_MEMOS: Memo[] = [
     updatedAt: "15 พ.ย. 2569 15:45",
     content:
       "ขออนุมัติเบิกค่าพาหนะและค่าที่พักสำหรับการเดินทางไปติดตั้งระบบ E-Office ณ สำนักงานสาขาเชียงใหม่ ระหว่างวันที่ 10-12 พฤศจิกายน 2569 รวมเป็นเงินทั้งสิ้น 12,400 บาท",
-    attachmentName: "ใบเสร็จค่าที่พักและเดินทาง.pdf",
-    attachmentSize: "2.1 MB",
+    attachment: {
+      name: "ใบเสร็จค่าที่พักและเดินทาง.pdf",
+      size: "2.1 MB",
+    },
     budgetAmount: 12400,
     status: "Returned for Revision",
     revisionNote:
@@ -181,8 +187,10 @@ export const INITIAL_MEMOS: Memo[] = [
     updatedAt: "13 พ.ย. 2569 16:20",
     content:
       "ตามที่ฝ่ายพัฒนาระบบดิจิทัลได้ดำเนินการออกแบบและพัฒนาต้นแบบระบบ E-Office เพื่อลดการใช้กระดาษภายในองค์กร บัดนี้การทดสอบ UAT ร่วมกับตัวแทนแผนกต่างๆ เสร็จสิ้นแล้ว ได้ผลความพึงพอใจร้อยละ 94.5 จึงเรียนมาเพื่อโปรดทราบและอนุมัติเปิดใช้งานจริง",
-    attachmentName: "สรุปผล_UAT_EOffice_Phase1.pdf",
-    attachmentSize: "3.2 MB",
+    attachment: {
+      name: "สรุปผล_UAT_EOffice_Phase1.pdf",
+      size: "3.2 MB",
+    },
     status: "Approved",
     signedBy: "ดร.กิตติพงศ์ เจริญผล",
     signedAt: "13 พ.ย. 2569 16:20",
@@ -209,7 +217,8 @@ export const INITIAL_MEMOS: Memo[] = [
         timestamp: "13 พ.ย. 2569 16:20",
         actorName: "ดร.กิตติพงศ์ เจริญผล",
         actorRole: "approver",
-        action: "ลงนามอนุมัติบันทึกข้อความด้วยลายมือชื่ออิเล็กทรอนิกส์ (Approved)",
+        action:
+          "ลงนามอนุมัติบันทึกข้อความด้วยลายมือชื่ออิเล็กทรอนิกส์ (Approved)",
         statusAfter: "Approved",
         comment: "ทราบและอนุมัติให้ดำเนินการเปิดใช้งานเฟสถัดไปได้",
       },

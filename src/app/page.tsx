@@ -4,6 +4,7 @@ import React, { useMemo, useState } from "react";
 import { useEOffice } from "@/context/EOfficeContext";
 import { ACTORS } from "@/data/seed";
 import {
+  AnnouncementCategory,
   LeaveType,
   Memo,
   MemoCategory,
@@ -169,7 +170,7 @@ export default function EOfficePage() {
   const [loginPassword, setLoginPassword] = useState("••••••••");
 
   // Action input states for selected Memo
-  const [customDocNo, setCustomDocNo] = useState("");
+  const [customDocumentNumber, setCustomDocumentNumber] = useState("");
   const [actionComment, setActionComment] = useState("");
   const [editSubject, setEditSubject] = useState("");
   const [editContent, setEditContent] = useState("");
@@ -194,6 +195,7 @@ export default function EOfficePage() {
   const [leaveEnd, setLeaveEnd] = useState("2026-12-02");
   const [leaveDays, setLeaveDays] = useState(2);
   const [leaveReason, setLeaveReason] = useState("");
+  const [leaveError, setLeaveError] = useState<string | null>(null);
   const [leaveCommentMap, setLeaveCommentMap] = useState<
     Record<string, string>
   >({});
@@ -208,9 +210,8 @@ export default function EOfficePage() {
 
   // Create Announcement form state
   const [annTitle, setAnnTitle] = useState("");
-  const [annCategory, setAnnCategory] = useState<
-    "ประกาศสำคัญ" | "นโยบายไอที" | "กิจกรรมองค์กร"
-  >("ประกาศสำคัญ");
+  const [annCategory, setAnnCategory] =
+    useState<AnnouncementCategory>("ประกาศสำคัญ");
   const [annContent, setAnnContent] = useState("");
 
   const activeActor = ACTORS[currentRole];
@@ -252,9 +253,6 @@ export default function EOfficePage() {
     if (currentRole === "approver") {
       return leaves.filter((l) => l.status === "Pending Approval");
     }
-    if (currentRole === "requester") {
-      return leaves.filter((l) => l.status === "Pending Approval");
-    }
     return [];
   }, [leaves, currentRole]);
 
@@ -269,7 +267,7 @@ export default function EOfficePage() {
     setEditContent(memo.content);
     setIsEditingMemo(false);
     setActionComment("");
-    setCustomDocNo("");
+    setCustomDocumentNumber("");
     setActiveTab("memos");
   };
 
@@ -291,8 +289,9 @@ export default function EOfficePage() {
       urgency: newUrgency,
       to: newTo,
       content: newContent.trim(),
-      attachmentName: newAttachment.trim() || undefined,
-      attachmentSize: newAttachmentSize,
+      attachment: newAttachment.trim()
+        ? { name: newAttachment.trim(), size: newAttachmentSize }
+        : undefined,
       budgetAmount: newBudget ? Number(newBudget) : undefined,
       submitImmediately,
     });
@@ -307,13 +306,18 @@ export default function EOfficePage() {
   const handleCreateLeaveSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (!leaveReason.trim() || leaveDays <= 0) return;
-    createLeaveRequest({
+    setLeaveError(null);
+    const result = createLeaveRequest({
       leaveType,
       startDate: leaveStart,
       endDate: leaveEnd,
       days: Number(leaveDays),
       reason: leaveReason.trim(),
     });
+    if (!result.ok) {
+      setLeaveError(result.error || "ไม่สามารถยื่นใบลาได้");
+      return;
+    }
     setLeaveReason("");
   };
 
@@ -1216,8 +1220,10 @@ export default function EOfficePage() {
                               </label>
                               <input
                                 type="text"
-                                value={customDocNo}
-                                onChange={(e) => setCustomDocNo(e.target.value)}
+                                value={customDocumentNumber}
+                                onChange={(e) =>
+                                  setCustomDocumentNumber(e.target.value)
+                                }
                                 placeholder={`ค่าอัตโนมัติ: บค ${String(
                                   docRunningNumber
                                 ).padStart(3, "0")}/2569`}
@@ -1245,10 +1251,10 @@ export default function EOfficePage() {
                               onClick={() => {
                                 registerDocumentNumber(
                                   selectedMemo.id,
-                                  customDocNo,
+                                  customDocumentNumber,
                                   actionComment
                                 );
-                                setCustomDocNo("");
+                                setCustomDocumentNumber("");
                                 setActionComment("");
                               }}
                               className="flex items-center gap-1.5 px-4 py-2 rounded-xl bg-amber-600 text-white text-xs font-semibold hover:bg-amber-700 transition shadow-sm"
@@ -1552,14 +1558,14 @@ export default function EOfficePage() {
                       {selectedMemo.content}
                     </div>
 
-                    {selectedMemo.attachmentName && (
+                    {selectedMemo.attachment && (
                       <div className="flex items-center justify-between p-3 rounded-xl bg-slate-50 border border-slate-200 text-xs">
                         <div className="flex items-center gap-2 text-slate-700 font-medium">
                           <Paperclip className="w-4 h-4 text-indigo-600" />
                           <span>
-                            ไฟล์แนบ: {selectedMemo.attachmentName}{" "}
-                            {selectedMemo.attachmentSize &&
-                              `(${selectedMemo.attachmentSize})`}
+                            ไฟล์แนบ: {selectedMemo.attachment.name}{" "}
+                            {selectedMemo.attachment.size &&
+                              `(${selectedMemo.attachment.size})`}
                           </span>
                         </div>
                         <span className="text-[11px] text-emerald-700 font-medium">
@@ -1665,14 +1671,17 @@ export default function EOfficePage() {
               </div>
             </div>
 
-            {/* Leave Balance Quota Cards */}
+                  {/* Leave Balance Cards */}
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
               {(Object.keys(leaveBalance) as LeaveType[]).map((key) => {
-                const quota = leaveBalance[key];
-                const remaining = Math.max(0, quota.total - quota.used);
+                const balanceItem = leaveBalance[key];
+                const remaining = Math.max(
+                  0,
+                  balanceItem.total - balanceItem.used
+                );
                 const percentUsed = Math.min(
                   100,
-                  Math.round((quota.used / quota.total) * 100)
+                  Math.round((balanceItem.used / balanceItem.total) * 100)
                 );
                 return (
                   <div
@@ -1681,16 +1690,16 @@ export default function EOfficePage() {
                   >
                     <div className="flex items-center justify-between">
                       <span className="text-xs font-bold text-slate-700">
-                        {quota.label}
+                        {balanceItem.label}
                       </span>
                       <span className="text-xs px-2.5 py-0.5 rounded-full bg-indigo-50 text-indigo-700 font-semibold">
                         คงเหลือ {remaining} วัน
                       </span>
                     </div>
                     <div className="text-2xl font-bold text-slate-900">
-                      ใช้ไป {quota.used}{" "}
+                      ใช้ไป {balanceItem.used}{" "}
                       <span className="text-sm font-normal text-slate-500">
-                        / {quota.total} วัน
+                        / {balanceItem.total} วัน
                       </span>
                     </div>
                     <div className="w-full h-2 rounded-full bg-slate-100 overflow-hidden">
@@ -1703,6 +1712,18 @@ export default function EOfficePage() {
                 );
               })}
             </div>
+
+            {leaveError && (
+              <div className="p-3.5 rounded-xl bg-rose-50 border border-rose-200 text-xs text-rose-800 font-medium flex items-center justify-between">
+                <span>⚠️ {leaveError}</span>
+                <button
+                  onClick={() => setLeaveError(null)}
+                  className="text-rose-600 font-bold"
+                >
+                  ✕
+                </button>
+              </div>
+            )}
 
             <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
               {/* Left: Submit Leave Request Form */}
@@ -1873,12 +1894,18 @@ export default function EOfficePage() {
                                 className="flex-1 min-w-[200px] px-3 py-1.5 text-xs rounded-lg border border-slate-300"
                               />
                               <button
-                                onClick={() =>
-                                  approveLeaveRequest(
+                                onClick={() => {
+                                  setLeaveError(null);
+                                  const res = approveLeaveRequest(
                                     lv.id,
                                     leaveCommentMap[lv.id]
-                                  )
-                                }
+                                  );
+                                  if (!res.ok) {
+                                    setLeaveError(
+                                      res.error || "ไม่สามารถอนุมัติใบลาได้"
+                                    );
+                                  }
+                                }}
                                 className="flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl bg-emerald-600 text-white text-xs font-semibold hover:bg-emerald-700 transition"
                               >
                                 <CheckCircle2 className="w-3.5 h-3.5" />
@@ -2183,12 +2210,7 @@ export default function EOfficePage() {
                     <select
                       value={annCategory}
                       onChange={(e) =>
-                        setAnnCategory(
-                          e.target.value as
-                            | "ประกาศสำคัญ"
-                            | "นโยบายไอที"
-                            | "กิจกรรมองค์กร"
-                        )
+                        setAnnCategory(e.target.value as AnnouncementCategory)
                       }
                       className="w-full px-3 py-2 text-xs rounded-lg border border-slate-300"
                     >

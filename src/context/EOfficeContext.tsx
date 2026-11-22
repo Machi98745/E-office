@@ -11,12 +11,15 @@ import {
 } from "@/data/seed";
 import {
   Announcement,
+  AnnouncementCategory,
+  Attachment,
   EOfficeDatabase,
   LeaveBalance,
   LeaveRequest,
   LeaveType,
   Memo,
   MemoCategory,
+  MemoStatus,
   Role,
   RoomBooking,
   UrgencyLevel,
@@ -28,8 +31,7 @@ interface CreateMemoInput {
   urgency: UrgencyLevel;
   to: string;
   content: string;
-  attachmentName?: string;
-  attachmentSize?: string;
+  attachment?: Attachment;
   budgetAmount?: number;
   submitImmediately: boolean;
 }
@@ -56,7 +58,7 @@ interface CreateBookingInput {
 
 interface CreateAnnouncementInput {
   title: string;
-  category: "ประกาศสำคัญ" | "นโยบายไอที" | "กิจกรรมองค์กร";
+  category: AnnouncementCategory;
   content: string;
   pinned?: boolean;
 }
@@ -83,14 +85,19 @@ interface EOfficeContextType {
   ) => void;
   registerDocumentNumber: (
     memoId: string,
-    customDocNo?: string,
+    customDocumentNumber?: string,
     comment?: string
   ) => void;
   returnMemoForRevision: (memoId: string, reason: string) => void;
   approveMemo: (memoId: string, comment?: string) => void;
   rejectMemo: (memoId: string, reason: string) => void;
-  createLeaveRequest: (input: CreateLeaveInput) => void;
-  approveLeaveRequest: (leaveId: string, comment?: string) => void;
+  createLeaveRequest: (
+    input: CreateLeaveInput
+  ) => { ok: boolean; error?: string };
+  approveLeaveRequest: (
+    leaveId: string,
+    comment?: string
+  ) => { ok: boolean; error?: string };
   rejectLeaveRequest: (leaveId: string, reason: string) => void;
   createRoomBooking: (input: CreateBookingInput) => void;
   deleteRoomBooking: (bookingId: string) => void;
@@ -98,7 +105,7 @@ interface EOfficeContextType {
   resetDemoData: () => Promise<void>;
 }
 
-const STORAGE_KEY = "e_office_fullstack_state_v2";
+const STORAGE_KEY = "e_office_fullstack_state_v3";
 
 const EOfficeContext = createContext<EOfficeContextType | undefined>(undefined);
 
@@ -126,6 +133,15 @@ function formatThaiTimestamp(): string {
   return `${day} ${month} ${year} ${hours}:${mins}`;
 }
 
+function nextId(items: { id: string }[], prefix: string): string {
+  const maxNum = items.reduce((max, item) => {
+    const match = item.id.match(/(\d+)$/);
+    const num = match ? parseInt(match[1], 10) : 0;
+    return num > max ? num : max;
+  }, 0);
+  return `${prefix}-${String(maxNum + 1).padStart(3, "0")}`;
+}
+
 export function EOfficeProvider({ children }: { children: React.ReactNode }) {
   const [isAuthenticated, setIsAuthenticated] = useState<boolean>(true);
   const [currentRole, setCurrentRole] = useState<Role>("requester");
@@ -142,7 +158,6 @@ export function EOfficeProvider({ children }: { children: React.ReactNode }) {
   const [hydrated, setHydrated] = useState(false);
   const [dbSynced, setDbSynced] = useState(false);
 
-  // Load initial database from Backend API (/api/eoffice), falling back to localStorage
   useEffect(() => {
     async function loadFromBackend() {
       try {
@@ -185,7 +200,6 @@ export function EOfficeProvider({ children }: { children: React.ReactNode }) {
     loadFromBackend();
   }, []);
 
-  // Persist changes to Backend API + localStorage
   useEffect(() => {
     if (!hydrated) return;
     const payload: EOfficeDatabase = {
@@ -233,11 +247,50 @@ export function EOfficeProvider({ children }: { children: React.ReactNode }) {
     setIsAuthenticated(false);
   };
 
+  // Shared helper to transition a Memo and append to its Audit Trail without code duplication
+  const transitionMemo = (
+    memoId: string,
+    patch: Partial<Memo>,
+    actorRole: Role,
+    action: string,
+    statusAfter: MemoStatus,
+    comment?: string
+  ) => {
+    const actor = ACTORS[actorRole];
+    const ts = formatThaiTimestamp();
+
+    setMemos((prev) =>
+      prev.map((m) => {
+        if (m.id !== memoId) return m;
+        return {
+          ...m,
+          ...patch,
+          status: statusAfter,
+          updatedAt: ts,
+          auditTrail: [
+            ...m.auditTrail,
+            {
+              id: `AUD-${Date.now()}`,
+              timestamp: ts,
+              actorName: actor.name,
+              actorRole,
+              action,
+              statusAfter,
+              comment,
+            },
+          ],
+        };
+      })
+    );
+  };
+
   const createMemo = (input: CreateMemoInput): Memo => {
     const actor = ACTORS.requester;
     const ts = formatThaiTimestamp();
-    const newId = `MEMO-${String(memos.length + 1).padStart(3, "0")}`;
-    const initialStatus = input.submitImmediately ? "Pending Clerk" : "Draft";
+    const newId = nextId(memos, "MEMO");
+    const initialStatus: MemoStatus = input.submitImmediately
+      ? "Pending Clerk"
+      : "Draft";
 
     const newMemo: Memo = {
       id: newId,
@@ -250,8 +303,7 @@ export function EOfficeProvider({ children }: { children: React.ReactNode }) {
       createdAt: ts,
       updatedAt: ts,
       content: input.content,
-      attachmentName: input.attachmentName || undefined,
-      attachmentSize: input.attachmentSize || undefined,
+      attachment: input.attachment,
       budgetAmount: input.budgetAmount,
       status: initialStatus,
       auditTrail: [
@@ -278,100 +330,51 @@ export function EOfficeProvider({ children }: { children: React.ReactNode }) {
     content: string,
     comment?: string
   ) => {
-    const actor = ACTORS.requester;
-    const ts = formatThaiTimestamp();
-
-    setMemos((prev) =>
-      prev.map((m) => {
-        if (m.id !== memoId) return m;
-        return {
-          ...m,
-          subject,
-          content,
-          updatedAt: ts,
-          status: "Pending Clerk",
-          revisionNote: undefined,
-          auditTrail: [
-            ...m.auditTrail,
-            {
-              id: `AUD-${Date.now()}`,
-              timestamp: ts,
-              actorName: actor.name,
-              actorRole: "requester",
-              action: "แก้ไขเอกสารและส่งเรื่องให้สารบรรณตรวจสอบอีกครั้ง",
-              statusAfter: "Pending Clerk",
-              comment: comment || "แก้ไขข้อมูลตามที่แจ้งเรียบร้อยแล้วครับ",
-            },
-          ],
-        };
-      })
+    transitionMemo(
+      memoId,
+      { subject, content, revisionNote: undefined },
+      "requester",
+      "แก้ไขเอกสารและส่งเรื่องให้สารบรรณตรวจสอบอีกครั้ง",
+      "Pending Clerk",
+      comment || "แก้ไขข้อมูลตามที่แจ้งเรียบร้อยแล้วครับ"
     );
   };
 
   const registerDocumentNumber = (
     memoId: string,
-    customDocNo?: string,
+    customDocumentNumber?: string,
     comment?: string
   ) => {
-    const actor = ACTORS.clerk;
-    const ts = formatThaiTimestamp();
+    const target = memos.find((m) => m.id === memoId);
+    if (!target) return;
+
+    const trimmedCustom = customDocumentNumber?.trim();
     const assignedNumber =
-      customDocNo?.trim() ||
+      trimmedCustom ||
       `บค ${String(docRunningNumber).padStart(3, "0")}/2569`;
 
-    setDocRunningNumber((n) => n + 1);
-    setMemos((prev) =>
-      prev.map((m) => {
-        if (m.id !== memoId) return m;
-        return {
-          ...m,
-          documentNumber: assignedNumber,
-          updatedAt: ts,
-          status: "Pending Approval",
-          revisionNote: undefined,
-          auditTrail: [
-            ...m.auditTrail,
-            {
-              id: `AUD-${Date.now()}`,
-              timestamp: ts,
-              actorName: actor.name,
-              actorRole: "clerk",
-              action: `ตรวจสอบรูปแบบผ่าน ออกเลขทะเบียน ${assignedNumber} และส่งต่อผู้อนุมัติ`,
-              statusAfter: "Pending Approval",
-              comment: comment || "รูปแบบเอกสารและไฟล์แนบถูกต้องครบถ้วน",
-            },
-          ],
-        };
-      })
+    if (!trimmedCustom) {
+      setDocRunningNumber((n) => n + 1);
+    }
+
+    transitionMemo(
+      memoId,
+      { documentNumber: assignedNumber, revisionNote: undefined },
+      "clerk",
+      `ตรวจสอบรูปแบบผ่าน ออกเลขทะเบียน ${assignedNumber} และส่งต่อผู้อนุมัติ`,
+      "Pending Approval",
+      comment || "รูปแบบเอกสารและไฟล์แนบถูกต้องครบถ้วน"
     );
   };
 
   const returnMemoForRevision = (memoId: string, reason: string) => {
-    const actor = ACTORS[currentRole];
-    const ts = formatThaiTimestamp();
-
-    setMemos((prev) =>
-      prev.map((m) => {
-        if (m.id !== memoId) return m;
-        return {
-          ...m,
-          updatedAt: ts,
-          status: "Returned for Revision",
-          revisionNote: reason,
-          auditTrail: [
-            ...m.auditTrail,
-            {
-              id: `AUD-${Date.now()}`,
-              timestamp: ts,
-              actorName: actor.name,
-              actorRole: currentRole,
-              action: "ส่งกลับให้ผู้ยื่นเรื่องแก้ไข (Returned for Revision)",
-              statusAfter: "Returned for Revision",
-              comment: reason,
-            },
-          ],
-        };
-      })
+    transitionMemo(
+      memoId,
+      { revisionNote: reason },
+      currentRole,
+      "ส่งกลับให้ผู้ยื่นเรื่องแก้ไข (Returned for Revision)",
+      "Returned for Revision",
+      reason
     );
   };
 
@@ -380,68 +383,57 @@ export function EOfficeProvider({ children }: { children: React.ReactNode }) {
     const ts = formatThaiTimestamp();
     const cmd = comment || "อนุมัติให้ดำเนินการตามเสนอ";
 
-    setMemos((prev) =>
-      prev.map((m) => {
-        if (m.id !== memoId) return m;
-        return {
-          ...m,
-          updatedAt: ts,
-          status: "Approved",
-          revisionNote: undefined,
-          signedBy: actor.name,
-          signedAt: ts,
-          approverCommand: cmd,
-          auditTrail: [
-            ...m.auditTrail,
-            {
-              id: `AUD-${Date.now()}`,
-              timestamp: ts,
-              actorName: actor.name,
-              actorRole: "approver",
-              action:
-                "ลงนามอนุมัติบันทึกข้อความด้วยลายมือชื่ออิเล็กทรอนิกส์ (e-Signature Approved)",
-              statusAfter: "Approved",
-              comment: cmd,
-            },
-          ],
-        };
-      })
+    transitionMemo(
+      memoId,
+      {
+        revisionNote: undefined,
+        signedBy: actor.name,
+        signedAt: ts,
+        approverCommand: cmd,
+      },
+      "approver",
+      "ลงนามอนุมัติบันทึกข้อความด้วยลายมือชื่ออิเล็กทรอนิกส์ (e-Signature Approved)",
+      "Approved",
+      cmd
     );
   };
 
   const rejectMemo = (memoId: string, reason: string) => {
-    const actor = ACTORS.approver;
-    const ts = formatThaiTimestamp();
-
-    setMemos((prev) =>
-      prev.map((m) => {
-        if (m.id !== memoId) return m;
-        return {
-          ...m,
-          updatedAt: ts,
-          status: "Rejected",
-          approverCommand: reason,
-          auditTrail: [
-            ...m.auditTrail,
-            {
-              id: `AUD-${Date.now()}`,
-              timestamp: ts,
-              actorName: actor.name,
-              actorRole: "approver",
-              action: "ไม่อนุมัติบันทึกข้อความ (Rejected - ปิดเรื่อง)",
-              statusAfter: "Rejected",
-              comment: reason,
-            },
-          ],
-        };
-      })
+    transitionMemo(
+      memoId,
+      { approverCommand: reason },
+      "approver",
+      "ไม่อนุมัติบันทึกข้อความ (Rejected - ปิดเรื่อง)",
+      "Rejected",
+      reason
     );
   };
 
-  const createLeaveRequest = (input: CreateLeaveInput) => {
+  const createLeaveRequest = (
+    input: CreateLeaveInput
+  ): { ok: boolean; error?: string } => {
+    if (input.days <= 0) {
+      return { ok: false, error: "จำนวนวันลาต้องมากกว่า 0 วัน" };
+    }
+    if (input.endDate < input.startDate) {
+      return {
+        ok: false,
+        error: "วันที่สิ้นสุดการลาต้องไม่น้อยกว่าวันที่เริ่มต้นการลา",
+      };
+    }
+
+    const balanceItem = leaveBalance[input.leaveType];
+    const remaining = balanceItem.total - balanceItem.used;
+    if (input.days > remaining) {
+      return {
+        ok: false,
+        error: `สิทธิ์วันลาคงเหลือไม่เพียงพอ (${balanceItem.label} คงเหลือ ${remaining} วัน แต่ขอลา ${input.days} วัน)`,
+      };
+    }
+
     const actor = ACTORS.requester;
     const ts = formatThaiTimestamp();
-    const newId = `LEAVE-${String(leaves.length + 1).padStart(3, "0")}`;
+    const newId = nextId(leaves, "LEAVE");
 
     const newLeave: LeaveRequest = {
       id: newId,
@@ -467,13 +459,28 @@ export function EOfficeProvider({ children }: { children: React.ReactNode }) {
     };
 
     setLeaves((prev) => [newLeave, ...prev]);
+    return { ok: true };
   };
 
-  const approveLeaveRequest = (leaveId: string, comment?: string) => {
+  const approveLeaveRequest = (
+    leaveId: string,
+    comment?: string
+  ): { ok: boolean; error?: string } => {
     const actor = ACTORS.approver;
     const ts = formatThaiTimestamp();
     const targetLeave = leaves.find((l) => l.id === leaveId);
-    if (!targetLeave || targetLeave.status === "Approved") return;
+    if (!targetLeave || targetLeave.status === "Approved") {
+      return { ok: false, error: "ไม่พบรายการใบลาที่รออนุมัติ" };
+    }
+
+    const balanceItem = leaveBalance[targetLeave.leaveType];
+    const remaining = balanceItem.total - balanceItem.used;
+    if (targetLeave.days > remaining) {
+      return {
+        ok: false,
+        error: `ไม่สามารถอนุมัติได้เนื่องจากวันลาคงเหลือไม่พอ (คงเหลือ ${remaining} วัน)`,
+      };
+    }
 
     setLeaves((prev) =>
       prev.map((l) => {
@@ -502,9 +509,14 @@ export function EOfficeProvider({ children }: { children: React.ReactNode }) {
       ...prev,
       [targetLeave.leaveType]: {
         ...prev[targetLeave.leaveType],
-        used: prev[targetLeave.leaveType].used + targetLeave.days,
+        used: Math.min(
+          prev[targetLeave.leaveType].total,
+          prev[targetLeave.leaveType].used + targetLeave.days
+        ),
       },
     }));
+
+    return { ok: true };
   };
 
   const rejectLeaveRequest = (leaveId: string, reason: string) => {
@@ -537,7 +549,7 @@ export function EOfficeProvider({ children }: { children: React.ReactNode }) {
 
   const createRoomBooking = (input: CreateBookingInput) => {
     const actor = ACTORS[currentRole];
-    const newId = `BOOK-${String(bookings.length + 1).padStart(3, "0")}`;
+    const newId = nextId(bookings, "BOOK");
     const booking: RoomBooking = {
       id: newId,
       roomName: input.roomName,
@@ -562,7 +574,7 @@ export function EOfficeProvider({ children }: { children: React.ReactNode }) {
 
   const createAnnouncement = (input: CreateAnnouncementInput) => {
     const actor = ACTORS[currentRole];
-    const newId = `ANN-${String(announcements.length + 1).padStart(3, "0")}`;
+    const newId = nextId(announcements, "ANN");
     const ann: Announcement = {
       id: newId,
       title: input.title,
