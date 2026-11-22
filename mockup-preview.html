@@ -1,0 +1,721 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>E-Office Smart Workflow | Interactive Prototype (Flow & Stack)</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Prompt:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+  <style>
+    body { font-family: 'Prompt', sans-serif; background-color: #f8fafc; color: #0f172a; }
+  </style>
+</head>
+<body class="min-h-screen flex flex-col">
+  <div id="app"></div>
+
+  <script>
+    const STORAGE_KEY = "e_office_standalone_state_v1";
+
+    const ACTORS = {
+      requester: {
+        role: "requester",
+        name: "ธนภัทร สายพัฒน์",
+        title: "นักวิชาการคอมพิวเตอร์ (ผู้ยื่นเรื่อง / Requester)",
+        department: "ฝ่ายพัฒนาระบบดิจิทัล",
+        badgeColor: "bg-blue-600",
+        description: "สร้างบันทึกข้อความ แก้ไขงานที่ถูกตีกลับ และยื่นใบลาออนไลน์"
+      },
+      clerk: {
+        role: "clerk",
+        name: "พิมพ์ชนก วงศ์สวัสดิ์",
+        title: "เจ้าหน้าที่สารบรรณกลาง (Clerk)",
+        department: "สำนักบริหารกลาง",
+        badgeColor: "bg-amber-600",
+        description: "ตรวจสอบรูปแบบบันทึกข้อความ ออกเลขทะเบียนหนังสือ (บค xxx/2569) หรือตีกลับให้แก้ไข"
+      },
+      approver: {
+        role: "approver",
+        name: "ดร.กิตติพงศ์ เจริญผล",
+        title: "ผู้อำนวยการฝ่าย (ผู้อนุมัติ / Approver)",
+        department: "ฝ่ายพัฒนาระบบดิจิทัล",
+        badgeColor: "bg-emerald-600",
+        description: "พิจารณาอนุมัติ ไม่อนุมัติ หรือส่งกลับแก้ไข ทั้งบันทึกข้อความและใบลาพนักงาน"
+      }
+    };
+
+    const INITIAL_STATE = {
+      currentRole: "requester",
+      activeTab: "dashboard",
+      selectedMemoId: "MEMO-001",
+      statusFilter: "ALL",
+      docRunningNumber: 43,
+      memos: [
+        {
+          id: "MEMO-001",
+          subject: "ขออนุมัติจัดซื้ออุปกรณ์เครือข่ายและเซิร์ฟเวอร์สำรองประจำปี",
+          category: "จัดซื้อจัดจ้าง",
+          urgency: "ด่วน",
+          to: "ผู้อำนวยการฝ่ายพัฒนาระบบดิจิทัล",
+          requesterName: "ธนภัทร สายพัฒน์",
+          department: "ฝ่ายพัฒนาระบบดิจิทัล",
+          createdAt: "17 พ.ย. 2569 09:15",
+          updatedAt: "17 พ.ย. 2569 09:20",
+          content: "เนื่องจากอุปกรณ์กระจายสัญญาณเครือข่ายหลักในห้อง Data Center มีอายุการใช้งานเกิน 5 ปี จึงขออนุมัติจัดซื้ออุปกรณ์ Switch Layer 3 จำนวน 2 ชุด และเครื่องเซิร์ฟเวอร์สำรอง 1 เครื่อง เพื่อเพิ่มเสถียรภาพของระบบ E-Office ภายในองค์กร",
+          attachmentName: "ใบเสนอราคา_Network_Server_2569.pdf",
+          budgetAmount: 145000,
+          status: "Pending Clerk",
+          auditTrail: [
+            { timestamp: "17 พ.ย. 2569 09:15", actorName: "ธนภัทร สายพัฒน์", actorRole: "requester", action: "สร้างร่างบันทึกข้อความ (Draft)" },
+            { timestamp: "17 พ.ย. 2569 09:20", actorName: "ธนภัทร สายพัฒน์", actorRole: "requester", action: "ส่งเรื่องให้เจ้าหน้าที่สารบรรณตรวจสอบและออกเลขหนังสือ (Pending Clerk)", comment: "แนบใบเสนอราคาเปรียบเทียบ 3 บริษัทเรียบร้อยแล้วครับ" }
+          ]
+        },
+        {
+          id: "MEMO-002",
+          documentNumber: "บค 042/2569",
+          subject: "ขออนุมัติจัดอบรมเชิงปฏิบัติการ Cybersecurity Awareness สำหรับบุคลากร",
+          category: "ขออนุมัติโครงการ",
+          urgency: "ปกติ",
+          to: "ผู้อำนวยการฝ่ายพัฒนาระบบดิจิทัล",
+          requesterName: "ธนภัทร สายพัฒน์",
+          department: "ฝ่ายพัฒนาระบบดิจิทัล",
+          createdAt: "16 พ.ย. 2569 10:30",
+          updatedAt: "16 พ.ย. 2569 14:10",
+          content: "ขออนุมัติจัดโครงการอบรมความรู้ด้านความมั่นคงปลอดภัยไซเบอร์ (Phishing & Password Security) ให้แก่พนักงานทุกแผนก จำนวน 80 คน ในวันที่ 5 ธันวาคม 2569 ณ ห้องประชุมใหญ่ ชั้น 3",
+          attachmentName: "กำหนดการอบรม_Cybersecurity_2569.pdf",
+          budgetAmount: 35000,
+          status: "Pending Approval",
+          auditTrail: [
+            { timestamp: "16 พ.ย. 2569 10:30", actorName: "ธนภัทร สายพัฒน์", actorRole: "requester", action: "ยื่นบันทึกข้อความเข้าสู่ระบบสารบรรณ" },
+            { timestamp: "16 พ.ย. 2569 14:10", actorName: "พิมพ์ชนก วงศ์สวัสดิ์", actorRole: "clerk", action: "ออกเลขทะเบียน บค 042/2569 และส่งต่อผู้บริหาร (Pending Approval)", comment: "เอกสารครบถ้วนตามระเบียบงานสารบรรณ" }
+          ]
+        },
+        {
+          id: "MEMO-003",
+          subject: "ขออนุมัติเบิกค่าใช้จ่ายเดินทางไปปฏิบัติงานติดตั้งระบบต่างจังหวัด",
+          category: "ขอเบิกงบประมาณ",
+          urgency: "ด่วนที่สุด",
+          to: "ผู้อำนวยการฝ่ายพัฒนาระบบดิจิทัล",
+          requesterName: "ธนภัทร สายพัฒน์",
+          department: "ฝ่ายพัฒนาระบบดิจิทัล",
+          createdAt: "15 พ.ย. 2569 11:00",
+          updatedAt: "15 พ.ย. 2569 15:45",
+          content: "ขออนุมัติเบิกค่าพาหนะและค่าที่พักสำหรับการเดินทางไปติดตั้งระบบ E-Office ณ สำนักงานสาขาเชียงใหม่ ระหว่างวันที่ 10-12 พฤศจิกายน 2569 รวมเป็นเงินทั้งสิ้น 12,400 บาท",
+          attachmentName: "ใบเสร็จค่าที่พักและเดินทาง.pdf",
+          budgetAmount: 12400,
+          status: "Returned for Revision",
+          revisionNote: "กรุณาระบุเลขที่คำสั่งเดินทางไปราชการในเนื้อหาบันทึกข้อความ และแนบสรุปรายงานผลการเดินทางเพิ่มเติมค่ะ",
+          auditTrail: [
+            { timestamp: "15 พ.ย. 2569 11:00", actorName: "ธนภัทร สายพัฒน์", actorRole: "requester", action: "ยื่นบันทึกข้อความเข้าสู่ระบบสารบรรณ" },
+            { timestamp: "15 พ.ย. 2569 15:45", actorName: "พิมพ์ชนก วงศ์สวัสดิ์", actorRole: "clerk", action: "ส่งกลับให้ผู้ยื่นเรื่องแก้ไข (Returned for Revision)", comment: "กรุณาระบุเลขที่คำสั่งเดินทางไปราชการในเนื้อหาบันทึกข้อความ และแนบสรุปรายงานผลการเดินทางเพิ่มเติมค่ะ" }
+          ]
+        },
+        {
+          id: "MEMO-004",
+          documentNumber: "บค 039/2569",
+          subject: "รายงานผลการทดสอบระบบสำนักงานอิเล็กทรอนิกส์ (E-Office) เฟสที่ 1",
+          category: "บันทึกข้อความทั่วไป",
+          urgency: "ปกติ",
+          to: "ผู้อำนวยการฝ่ายพัฒนาระบบดิจิทัล",
+          requesterName: "ธนภัทร สายพัฒน์",
+          department: "ฝ่ายพัฒนาระบบดิจิทัล",
+          createdAt: "12 พ.ย. 2569 09:00",
+          updatedAt: "13 พ.ย. 2569 16:20",
+          content: "ตามที่ฝ่ายพัฒนาระบบดิจิทัลได้ดำเนินการออกแบบและพัฒนาต้นแบบระบบ E-Office เพื่อลดการใช้กระดาษภายในองค์กร บัดนี้การทดสอบ UAT เสร็จสิ้นแล้ว ได้ผลความพึงพอใจร้อยละ 94.5 จึงเรียนมาเพื่อโปรดทราบและอนุมัติเปิดใช้งานจริง",
+          attachmentName: "สรุปผล_UAT_EOffice_Phase1.pdf",
+          status: "Approved",
+          auditTrail: [
+            { timestamp: "12 พ.ย. 2569 09:00", actorName: "ธนภัทร สายพัฒน์", actorRole: "requester", action: "ยื่นบันทึกข้อความเข้าสู่ระบบสารบรรณ" },
+            { timestamp: "12 พ.ย. 2569 11:30", actorName: "พิมพ์ชนก วงศ์สวัสดิ์", actorRole: "clerk", action: "ออกเลขทะเบียน บค 039/2569 และส่งต่อผู้อนุมัติ" },
+            { timestamp: "13 พ.ย. 2569 16:20", actorName: "ดร.กิตติพงศ์ เจริญผล", actorRole: "approver", action: "ลงนามอนุมัติบันทึกข้อความ (Approved)", comment: "ทราบและอนุมัติให้ดำเนินการเปิดใช้งานเฟสถัดไปได้" }
+          ]
+        }
+      ],
+      leaveBalance: {
+        sick: { label: "ลาป่วย (Sick Leave)", total: 30, used: 2 },
+        personal: { label: "ลากิจธุระจำเป็น (Personal Leave)", total: 6, used: 1 },
+        vacation: { label: "ลาพักผ่อนประจำปี (Vacation Leave)", total: 10, used: 3 }
+      },
+      leaves: [
+        {
+          id: "LEAVE-001",
+          requesterName: "ธนภัทร สายพัฒน์",
+          department: "ฝ่ายพัฒนาระบบดิจิทัล",
+          leaveType: "vacation",
+          startDate: "2026-11-26",
+          endDate: "2026-11-27",
+          days: 2,
+          reason: "เดินทางไปพักผ่อนกับครอบครัวต่างจังหวัด (ส่งมอบงานระหว่างลาให้ทีมเรียบร้อยแล้ว)",
+          status: "Pending Approval"
+        },
+        {
+          id: "LEAVE-002",
+          requesterName: "ธนภัทร สายพัฒน์",
+          department: "ฝ่ายพัฒนาระบบดิจิทัล",
+          leaveType: "sick",
+          startDate: "2026-11-04",
+          endDate: "2026-11-05",
+          days: 2,
+          reason: "มีอาการไข้หวัดและพบแพทย์ตามนัด",
+          status: "Approved",
+          approverComment: "อนุมัติ ขอให้หายไวๆ ครับ"
+        }
+      ]
+    };
+
+    let state = loadState();
+
+    function loadState() {
+      try {
+        const saved = localStorage.getItem(STORAGE_KEY);
+        if (saved) return JSON.parse(saved);
+      } catch (e) {}
+      return JSON.parse(JSON.stringify(INITIAL_STATE));
+    }
+
+    function saveState() {
+      try {
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+      } catch (e) {}
+      render();
+    }
+
+    function nowThai() {
+      const d = new Date();
+      return `${d.getDate()} พ.ย. 2569 ${String(d.getHours()).padStart(2,'0')}:${String(d.getMinutes()).padStart(2,'0')}`;
+    }
+
+    function getStatusBadge(status) {
+      const map = {
+        "Draft": { label: "ฉบับร่าง (Draft)", cls: "bg-slate-100 text-slate-700 border-slate-300" },
+        "Pending Clerk": { label: "รอสารบรรณออกเลข (Pending Clerk)", cls: "bg-amber-50 text-amber-800 border-amber-300" },
+        "Pending Approval": { label: "รอหัวหน้าอนุมัติ (Pending Approval)", cls: "bg-blue-50 text-blue-800 border-blue-300" },
+        "Returned for Revision": { label: "ส่งกลับแก้ไข (Returned for Revision)", cls: "bg-orange-50 text-orange-800 border-orange-300" },
+        "Approved": { label: "อนุมัติแล้ว (Approved)", cls: "bg-emerald-50 text-emerald-800 border-emerald-300" },
+        "Rejected": { label: "ไม่อนุมัติ (Rejected)", cls: "bg-rose-50 text-rose-800 border-rose-300" }
+      };
+      return map[status] || { label: status, cls: "bg-slate-100 text-slate-700" };
+    }
+
+    // Actions
+    window.switchRole = (role) => { state.currentRole = role; saveState(); };
+    window.switchTab = (tab) => { state.activeTab = tab; saveState(); };
+    window.selectMemo = (id) => { state.selectedMemoId = id; state.activeTab = "memos"; saveState(); };
+    window.setFilter = (f) => { state.statusFilter = f; saveState(); };
+    window.resetDemo = () => {
+      localStorage.removeItem(STORAGE_KEY);
+      state = JSON.parse(JSON.stringify(INITIAL_STATE));
+      render();
+    };
+
+    window.clerkIssueNumber = (memoId) => {
+      const customNo = document.getElementById("clerkDocNo")?.value?.trim();
+      const comment = document.getElementById("actionComment")?.value?.trim();
+      const docNo = customNo || `บค ${String(state.docRunningNumber).padStart(3, "0")}/2569`;
+      state.docRunningNumber += 1;
+      const m = state.memos.find(x => x.id === memoId);
+      if (!m) return;
+      m.documentNumber = docNo;
+      m.status = "Pending Approval";
+      m.updatedAt = nowThai();
+      m.revisionNote = undefined;
+      m.auditTrail.push({
+        timestamp: nowThai(),
+        actorName: ACTORS.clerk.name,
+        actorRole: "clerk",
+        action: `ออกเลขทะเบียน ${docNo} และส่งต่อผู้อนุมัติ`,
+        comment: comment || "ตรวจสอบรูปแบบเอกสารและไฟล์แนบถูกต้องครบถ้วน"
+      });
+      saveState();
+    };
+
+    window.returnMemo = (memoId) => {
+      const comment = document.getElementById("actionComment")?.value?.trim() || "กรุณาตรวจสอบและแก้ไขรายละเอียดเอกสารเพิ่มเติม";
+      const m = state.memos.find(x => x.id === memoId);
+      if (!m) return;
+      m.status = "Returned for Revision";
+      m.revisionNote = comment;
+      m.updatedAt = nowThai();
+      m.auditTrail.push({
+        timestamp: nowThai(),
+        actorName: ACTORS[state.currentRole].name,
+        actorRole: state.currentRole,
+        action: "ส่งกลับให้ผู้ยื่นแก้ไข (Returned for Revision)",
+        comment
+      });
+      saveState();
+    };
+
+    window.approveMemoAction = (memoId) => {
+      const comment = document.getElementById("actionComment")?.value?.trim() || "อนุมัติให้ดำเนินการตามเสนอ";
+      const m = state.memos.find(x => x.id === memoId);
+      if (!m) return;
+      m.status = "Approved";
+      m.revisionNote = undefined;
+      m.updatedAt = nowThai();
+      m.auditTrail.push({
+        timestamp: nowThai(),
+        actorName: ACTORS.approver.name,
+        actorRole: "approver",
+        action: "ลงนามอนุมัติบันทึกข้อความ (Approved)",
+        comment
+      });
+      saveState();
+    };
+
+    window.rejectMemoAction = (memoId) => {
+      const comment = document.getElementById("actionComment")?.value?.trim() || "ไม่อนุมัติเนื่องจากเกินกรอบงบประมาณ";
+      const m = state.memos.find(x => x.id === memoId);
+      if (!m) return;
+      m.status = "Rejected";
+      m.updatedAt = nowThai();
+      m.auditTrail.push({
+        timestamp: nowThai(),
+        actorName: ACTORS.approver.name,
+        actorRole: "approver",
+        action: "ไม่อนุมัติบันทึกข้อความ (Rejected - ปิดเรื่อง)",
+        comment
+      });
+      saveState();
+    };
+
+    window.resubmitMemoAction = (memoId) => {
+      const m = state.memos.find(x => x.id === memoId);
+      if (!m) return;
+      m.status = "Pending Clerk";
+      m.revisionNote = undefined;
+      m.updatedAt = nowThai();
+      m.auditTrail.push({
+        timestamp: nowThai(),
+        actorName: ACTORS.requester.name,
+        actorRole: "requester",
+        action: "แก้ไขข้อมูลและส่งเรื่องให้สารบรรณตรวจสอบอีกครั้ง",
+        comment: "ปรับปรุงเนื้อหาตามข้อเสนอแนะเรียบร้อยแล้วครับ"
+      });
+      saveState();
+    };
+
+    window.createNewMemo = (e) => {
+      e.preventDefault();
+      const subject = document.getElementById("newMemoSubject").value.trim();
+      const category = document.getElementById("newMemoCategory").value;
+      const urgency = document.getElementById("newMemoUrgency").value;
+      const budget = document.getElementById("newMemoBudget").value;
+      const content = document.getElementById("newMemoContent").value.trim();
+      if (!subject || !content) return;
+      const newId = `MEMO-${String(state.memos.length + 1).padStart(3, "0")}`;
+      const newMemo = {
+        id: newId,
+        subject,
+        category,
+        urgency,
+        to: "ผู้อำนวยการฝ่ายพัฒนาระบบดิจิทัล",
+        requesterName: ACTORS.requester.name,
+        department: ACTORS.requester.department,
+        createdAt: nowThai(),
+        updatedAt: nowThai(),
+        content,
+        attachmentName: "เอกสารแนบประกอบการพิจารณา.pdf",
+        budgetAmount: budget ? Number(budget) : undefined,
+        status: "Pending Clerk",
+        auditTrail: [
+          { timestamp: nowThai(), actorName: ACTORS.requester.name, actorRole: "requester", action: "สร้างและส่งบันทึกข้อความเข้าสู่ห้องสารบรรณ (Pending Clerk)" }
+        ]
+      };
+      state.memos.unshift(newMemo);
+      state.selectedMemoId = newId;
+      state.activeTab = "memos";
+      saveState();
+    };
+
+    window.createNewLeave = (e) => {
+      e.preventDefault();
+      const leaveType = document.getElementById("newLeaveType").value;
+      const startDate = document.getElementById("newLeaveStart").value;
+      const endDate = document.getElementById("newLeaveEnd").value;
+      const days = Number(document.getElementById("newLeaveDays").value || 1);
+      const reason = document.getElementById("newLeaveReason").value.trim();
+      if (!reason) return;
+      state.leaves.unshift({
+        id: `LEAVE-${String(state.leaves.length + 1).padStart(3, "0")}`,
+        requesterName: ACTORS.requester.name,
+        department: ACTORS.requester.department,
+        leaveType,
+        startDate,
+        endDate,
+        days,
+        reason,
+        status: "Pending Approval"
+      });
+      saveState();
+    };
+
+    window.approveLeave = (id) => {
+      const lv = state.leaves.find(x => x.id === id);
+      if (!lv || lv.status === "Approved") return;
+      lv.status = "Approved";
+      lv.approverComment = "อนุมัติการลา และตัดโควตาวันลาอัตโนมัติ";
+      state.leaveBalance[lv.leaveType].used += lv.days;
+      saveState();
+    };
+
+    function render() {
+      const actor = ACTORS[state.currentRole];
+      const counts = {
+        requester: state.memos.filter(m => m.status === "Draft" || m.status === "Returned for Revision").length,
+        clerk: state.memos.filter(m => m.status === "Pending Clerk").length,
+        approver: state.memos.filter(m => m.status === "Pending Approval").length + state.leaves.filter(l => l.status === "Pending Approval").length
+      };
+      const selectedMemo = state.memos.find(m => m.id === state.selectedMemoId) || state.memos[0];
+
+      document.getElementById("app").innerHTML = `
+        <!-- Top Role Switcher Bar -->
+        <div class="bg-slate-900 text-white border-b border-slate-800 sticky top-0 z-30 shadow-md">
+          <div class="max-w-7xl mx-auto px-4 py-2.5 flex flex-wrap items-center justify-between gap-3">
+            <div class="flex items-center gap-2">
+              <span class="px-2.5 py-1 rounded-full text-xs font-semibold bg-indigo-500/20 text-indigo-300 border border-indigo-400/30">
+                โหมดสาธิตอาจารย์ (Role Switcher)
+              </span>
+              <span class="text-xs text-slate-300 hidden md:inline">
+                คลิกสลับบทบาทด้านขวาเพื่อจำลองการส่งต่อและอนุมัติเอกสารในหน้าจอเดียว
+              </span>
+            </div>
+            <div class="flex flex-wrap items-center gap-2">
+              ${["requester", "clerk", "approver"].map((r, i) => `
+                <button onclick="switchRole('${r}')" class="flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-medium transition ${state.currentRole === r ? 'bg-white text-slate-900 ring-2 ring-indigo-400 font-bold' : 'bg-slate-800 text-slate-300 hover:bg-slate-700'}">
+                  <span>${i+1}. ${r === 'requester' ? 'พนักงาน (Requester)' : r === 'clerk' ? 'สารบรรณ (Clerk)' : 'ผู้อนุมัติ (Approver)'}</span>
+                  ${counts[r] > 0 ? `<span class="px-1.5 py-0.5 rounded-full text-[10px] font-bold ${state.currentRole === r ? 'bg-rose-600 text-white' : 'bg-slate-700 text-amber-300'}">${counts[r]} งานรอ</span>` : ''}
+                </button>
+              `).join("")}
+              <button onclick="resetDemo()" class="px-2.5 py-1.5 rounded-lg text-xs font-medium bg-rose-950 text-rose-200 border border-rose-800 hover:bg-rose-900">
+                Reset ข้อมูลเริ่มต้น
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <!-- Header -->
+        <header class="bg-white border-b border-slate-200">
+          <div class="max-w-7xl mx-auto px-4 py-4 flex flex-wrap items-center justify-between gap-4">
+            <div>
+              <h1 class="text-lg font-bold text-slate-900">E-Office Smart Workflow (Interactive Mockup)</h1>
+              <p class="text-xs text-slate-500">ต้นแบบระบบสำนักงานอิเล็กทรอนิกส์ สาธิต Flow การเดินเอกสาร 3 บทบาท & Tech Stack</p>
+            </div>
+            <div class="bg-slate-50 border border-slate-200 rounded-xl px-4 py-2 text-xs">
+              <div class="font-bold text-slate-900">มุมมองปัจจุบัน: ${actor.name} <span class="text-indigo-600">(${actor.title})</span></div>
+              <div class="text-slate-500">${actor.description}</div>
+            </div>
+          </div>
+
+          <div class="max-w-7xl mx-auto px-4 flex items-center gap-2 overflow-x-auto">
+            ${[
+              { id: "dashboard", label: `1. แดชบอร์ด & กล่องงาน (${counts[state.currentRole]})` },
+              { id: "memos", label: `2. ระบบสารบรรณ & บันทึกข้อความ (${state.memos.length})` },
+              { id: "leaves", label: `3. ระบบลางานออนไลน์ (${state.leaves.length})` },
+              { id: "architecture", label: "4. สรุป Flow & Stack (คู่มือนำเสนออาจารย์)" }
+            ].map(t => `
+              <button onclick="switchTab('${t.id}')" class="px-4 py-3 text-sm font-medium border-b-2 transition whitespace-nowrap ${state.activeTab === t.id ? 'border-indigo-600 text-indigo-600 font-bold' : 'border-transparent text-slate-600 hover:text-slate-900'}">
+                ${t.label}
+              </button>
+            `).join("")}
+          </div>
+        </header>
+
+        <main class="max-w-7xl w-full mx-auto px-4 py-6 flex-1">
+          ${state.activeTab === "dashboard" ? renderDashboard(actor, counts) : ""}
+          ${state.activeTab === "memos" ? renderMemos(selectedMemo, actor) : ""}
+          ${state.activeTab === "leaves" ? renderLeaves() : ""}
+          ${state.activeTab === "architecture" ? renderArchitecture() : ""}
+        </main>
+      `;
+    }
+
+    function renderDashboard(actor, counts) {
+      const inboxMemos = state.memos.filter(m =>
+        state.currentRole === "requester" ? (m.status === "Draft" || m.status === "Returned for Revision") :
+        state.currentRole === "clerk" ? m.status === "Pending Clerk" :
+        m.status === "Pending Approval"
+      );
+
+      return `
+        <div class="space-y-6">
+          <div class="bg-gradient-to-r from-indigo-600 to-blue-700 rounded-2xl p-6 text-white flex flex-wrap items-center justify-between gap-4">
+            <div class="space-y-1 max-w-2xl">
+              <div class="text-xs font-semibold uppercase tracking-wider text-indigo-200">กล่องงานประจำตำแหน่ง (${actor.title})</div>
+              <h2 class="text-xl font-bold">สวัสดีคุณ${actor.name} (${actor.department})</h2>
+              <p class="text-sm text-indigo-100">${actor.description}</p>
+            </div>
+            <div class="flex gap-2">
+              <button onclick="switchTab('memos')" class="px-4 py-2.5 rounded-xl bg-white text-indigo-700 font-bold text-xs shadow">ไปที่ระบบบันทึกข้อความ</button>
+              <button onclick="switchTab('architecture')" class="px-4 py-2.5 rounded-xl bg-indigo-500/40 border border-white/30 text-white font-semibold text-xs">ดูสรุป Flow & Stack</button>
+            </div>
+          </div>
+
+          <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+            <div class="md:col-span-2 bg-white rounded-2xl border border-slate-200 p-5 space-y-4">
+              <h3 class="font-bold text-slate-900">รายการบันทึกข้อความที่รอดำเนินการโดย ${actor.title} (${inboxMemos.length})</h3>
+              <div class="divide-y divide-slate-100">
+                ${inboxMemos.length === 0 ? `<div class="py-8 text-center text-xs text-slate-500">ไม่มีงานค้างในบทบาทนี้ สามารถกดสลับบทบาท (Role Switcher) บนแถบสีดำด้านบนเพื่อดูงานในขั้นถัดไปได้เลย</div>` : ""}
+                ${inboxMemos.map(m => {
+                  const b = getStatusBadge(m.status);
+                  return `
+                    <div class="py-3.5 flex flex-wrap items-center justify-between gap-3">
+                      <div class="space-y-1">
+                        <div class="flex items-center gap-2">
+                          <span class="text-xs font-mono font-bold text-indigo-600">${m.documentNumber || m.id}</span>
+                          <span class="text-[11px] px-2 py-0.5 rounded-full border ${b.cls}">${b.label}</span>
+                        </div>
+                        <div class="font-semibold text-sm text-slate-900">${m.subject}</div>
+                        ${m.revisionNote ? `<div class="text-xs text-orange-800 bg-orange-50 border border-orange-200 rounded-lg px-2.5 py-1">หมายเหตุแก้ไข: ${m.revisionNote}</div>` : ""}
+                      </div>
+                      <button onclick="selectMemo('${m.id}')" class="px-3.5 py-2 rounded-xl bg-indigo-600 text-white text-xs font-semibold hover:bg-indigo-700">
+                        เปิดดำเนินการ →
+                      </button>
+                    </div>
+                  `;
+                }).join("")}
+              </div>
+            </div>
+
+            <div class="bg-white rounded-2xl border border-slate-200 p-5 space-y-3">
+              <h3 class="font-bold text-sm text-slate-900">โพยสาธิต Flow ให้อาจารย์ดู (3 ขั้นตอน)</h3>
+              <div class="p-3 rounded-xl bg-blue-50 text-xs space-y-1">
+                <div class="font-bold text-blue-900">ขั้นที่ 1: พนักงาน (Requester)</div>
+                <div>สร้างบันทึกข้อความใหม่ หรือกดส่งเรื่องที่แก้ไขแล้วเข้าห้องสารบรรณ</div>
+              </div>
+              <div class="p-3 rounded-xl bg-amber-50 text-xs space-y-1">
+                <div class="font-bold text-amber-900">ขั้นที่ 2: สารบรรณ (Clerk)</div>
+                <div>สลับเป็นสารบรรณ กดออกเลขทะเบียนหนังสือ <code>บค 043/2569</code> หรือตีกลับให้แก้ไข</div>
+              </div>
+              <div class="p-3 rounded-xl bg-emerald-50 text-xs space-y-1">
+                <div class="font-bold text-emerald-900">ขั้นที่ 3: ผู้อนุมัติ (Approver)</div>
+                <div>สลับเป็นผู้อนุมัติ กดลงนามอนุมัติบันทึกข้อความ และอนุมัติใบลา</div>
+              </div>
+            </div>
+          </div>
+        </div>
+      `;
+    }
+
+    function renderMemos(selectedMemo, actor) {
+      const b = getStatusBadge(selectedMemo.status);
+      return `
+        <div class="grid grid-cols-1 lg:grid-cols-12 gap-6">
+          <div class="lg:col-span-5 space-y-4">
+            <!-- Create New Memo Form -->
+            <form onsubmit="createNewMemo(event)" class="bg-white rounded-2xl border border-slate-200 p-4 space-y-3">
+              <div class="font-bold text-sm text-slate-900">+ สร้างบันทึกข้อความใหม่ (ส่งเข้าสารบรรณทันที)</div>
+              <input id="newMemoSubject" required placeholder="หัวข้อเรื่องบันทึกข้อความ..." class="w-full px-3 py-2 text-xs rounded-lg border border-slate-300" />
+              <div class="grid grid-cols-3 gap-2">
+                <select id="newMemoCategory" class="px-2 py-1.5 text-xs rounded-lg border border-slate-300">
+                  <option value="ขออนุมัติโครงการ">ขออนุมัติโครงการ</option>
+                  <option value="จัดซื้อจัดจ้าง">จัดซื้อจัดจ้าง</option>
+                  <option value="ขอเบิกงบประมาณ">ขอเบิกงบประมาณ</option>
+                </select>
+                <select id="newMemoUrgency" class="px-2 py-1.5 text-xs rounded-lg border border-slate-300">
+                  <option value="ปกติ">ชั้นความเร็ว: ปกติ</option>
+                  <option value="ด่วน">ด่วน</option>
+                  <option value="ด่วนที่สุด">ด่วนที่สุด</option>
+                </select>
+                <input id="newMemoBudget" type="number" placeholder="งบประมาณ (บาท)" class="px-2 py-1.5 text-xs rounded-lg border border-slate-300" />
+              </div>
+              <textarea id="newMemoContent" rows="2" required placeholder="รายละเอียด/เหตุผลความจำเป็น..." class="w-full px-3 py-2 text-xs rounded-lg border border-slate-300"></textarea>
+              <button type="submit" class="w-full py-2 rounded-xl bg-indigo-600 text-white text-xs font-semibold hover:bg-indigo-700">บันทึก & ส่งเรื่องให้สารบรรณ (Submit to Clerk)</button>
+            </form>
+
+            <!-- Memo List -->
+            <div class="bg-white rounded-2xl border border-slate-200 overflow-hidden">
+              <div class="px-4 py-3 bg-slate-50 border-b border-slate-200 text-xs font-bold text-slate-700">รายการบันทึกข้อความทั้งหมด (${state.memos.length})</div>
+              <div class="divide-y divide-slate-100">
+                ${state.memos.map(m => {
+                  const mb = getStatusBadge(m.status);
+                  return `
+                    <button onclick="selectMemo('${m.id}')" class="w-full text-left p-4 block transition ${m.id === selectedMemo.id ? 'bg-indigo-50 border-l-4 border-l-indigo-600' : 'hover:bg-slate-50'}">
+                      <div class="flex items-center justify-between gap-2 mb-1">
+                        <span class="text-xs font-mono font-bold text-indigo-600">${m.documentNumber ? `${m.documentNumber} (${m.id})` : m.id}</span>
+                        <span class="text-[10px] px-2 py-0.5 rounded-full border ${mb.cls}">${mb.label}</span>
+                      </div>
+                      <div class="text-sm font-semibold text-slate-900">${m.subject}</div>
+                    </button>
+                  `;
+                }).join("")}
+              </div>
+            </div>
+          </div>
+
+          <!-- Memo Detail & State Machine -->
+          <div class="lg:col-span-7 space-y-4">
+            <div class="bg-white rounded-2xl border border-slate-200 p-5 space-y-3">
+              <div class="flex items-center justify-between">
+                <span class="text-xs font-bold text-slate-700 uppercase">Workflow State Machine (เส้นทางเดินเอกสาร)</span>
+                <span class="text-xs px-2.5 py-0.5 rounded-full border font-semibold ${b.cls}">${b.label}</span>
+              </div>
+              <div class="grid grid-cols-4 gap-2 text-center text-xs">
+                <div class="p-2.5 rounded-xl border ${selectedMemo.status === 'Draft' || selectedMemo.status === 'Returned for Revision' ? 'bg-indigo-50 border-indigo-400 font-bold' : 'bg-emerald-50 border-emerald-200'}">1. ผู้ยื่นเรื่อง<br/><span class="text-[10px]">Requester</span></div>
+                <div class="p-2.5 rounded-xl border ${selectedMemo.status === 'Pending Clerk' ? 'bg-amber-50 border-amber-400 font-bold ring-2 ring-amber-200' : selectedMemo.documentNumber ? 'bg-emerald-50 border-emerald-200' : 'bg-slate-50 text-slate-400'}">2. สารบรรณออกเลข<br/><span class="text-[10px]">${selectedMemo.documentNumber || 'Pending Clerk'}</span></div>
+                <div class="p-2.5 rounded-xl border ${selectedMemo.status === 'Pending Approval' ? 'bg-blue-50 border-blue-400 font-bold ring-2 ring-blue-200' : selectedMemo.status === 'Approved' ? 'bg-emerald-50 border-emerald-200' : 'bg-slate-50 text-slate-400'}">3. หัวหน้าพิจารณา<br/><span class="text-[10px]">Approver</span></div>
+                <div class="p-2.5 rounded-xl border ${selectedMemo.status === 'Approved' ? 'bg-emerald-100 border-emerald-400 font-bold' : selectedMemo.status === 'Rejected' ? 'bg-rose-100 border-rose-400 font-bold' : 'bg-slate-50 text-slate-400'}">4. เสร็จสิ้น<br/><span class="text-[10px]">${selectedMemo.status === 'Approved' ? 'Approved' : selectedMemo.status === 'Rejected' ? 'Rejected' : 'Final'}</span></div>
+              </div>
+            </div>
+
+            <!-- Action Box -->
+            <div class="bg-white rounded-2xl border-2 border-indigo-200 p-5 space-y-3">
+              <div class="font-bold text-sm text-slate-900">แผงดำเนินการตามสิทธิ์ปัจจุบัน: ${actor.title}</div>
+              ${state.currentRole === "clerk" && selectedMemo.status === "Pending Clerk" ? `
+                <div class="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                  <input id="clerkDocNo" placeholder="เลขทะเบียน (อัตโนมัติ: บค ${String(state.docRunningNumber).padStart(3,'0')}/2569)" class="px-3 py-2 text-xs rounded-lg border border-slate-300" />
+                  <input id="actionComment" placeholder="ความเห็นสารบรรณ / เหตุผลที่ตีกลับ" class="px-3 py-2 text-xs rounded-lg border border-slate-300" />
+                </div>
+                <div class="flex flex-wrap gap-2">
+                  <button onclick="clerkIssueNumber('${selectedMemo.id}')" class="px-4 py-2 rounded-xl bg-amber-600 text-white text-xs font-semibold hover:bg-amber-700">ลงทะเบียนออกเลขหนังสือ & ส่งต่อผู้อนุมัติ</button>
+                  <button onclick="returnMemo('${selectedMemo.id}')" class="px-3.5 py-2 rounded-xl bg-orange-100 text-orange-800 border border-orange-300 text-xs font-semibold">ส่งกลับให้แก้ไข (Return)</button>
+                </div>
+              ` : state.currentRole === "approver" && selectedMemo.status === "Pending Approval" ? `
+                <input id="actionComment" placeholder="ความเห็นผู้บริหาร / คำสั่งการท้ายบันทึกข้อความ..." class="w-full px-3 py-2 text-xs rounded-lg border border-slate-300" />
+                <div class="flex flex-wrap gap-2">
+                  <button onclick="approveMemoAction('${selectedMemo.id}')" class="px-4 py-2 rounded-xl bg-emerald-600 text-white text-xs font-semibold hover:bg-emerald-700">ลงนามอนุมัติ (Approve)</button>
+                  <button onclick="returnMemo('${selectedMemo.id}')" class="px-3.5 py-2 rounded-xl bg-orange-100 text-orange-800 border border-orange-300 text-xs font-semibold">ส่งกลับแก้ไข (Return)</button>
+                  <button onclick="rejectMemoAction('${selectedMemo.id}')" class="px-3.5 py-2 rounded-xl bg-rose-100 text-rose-800 border border-rose-300 text-xs font-semibold">ไม่อนุมัติ (Reject)</button>
+                </div>
+              ` : state.currentRole === "requester" && (selectedMemo.status === "Returned for Revision" || selectedMemo.status === "Draft") ? `
+                <button onclick="resubmitMemoAction('${selectedMemo.id}')" class="px-4 py-2 rounded-xl bg-blue-600 text-white text-xs font-semibold hover:bg-blue-700">ยืนยันการแก้ไข & ส่งเรื่องให้สารบรรณตรวจสอบอีกครั้ง</button>
+              ` : `
+                <div class="text-xs text-slate-600 bg-slate-50 p-3 rounded-xl border border-slate-200 flex items-center justify-between">
+                  <span>เอกสารนี้อยู่ที่สถานะ <strong>${b.label}</strong></span>
+                  ${selectedMemo.status === "Pending Clerk" ? `<button onclick="switchRole('clerk')" class="px-3 py-1.5 rounded-lg bg-amber-600 text-white font-semibold">สลับเป็น สารบรรณ (Clerk) ทันที</button>` : ""}
+                  ${selectedMemo.status === "Pending Approval" ? `<button onclick="switchRole('approver')" class="px-3 py-1.5 rounded-lg bg-emerald-600 text-white font-semibold">สลับเป็น ผู้อนุมัติ (Approver) ทันที</button>` : ""}
+                  ${selectedMemo.status === "Returned for Revision" ? `<button onclick="switchRole('requester')" class="px-3 py-1.5 rounded-lg bg-blue-600 text-white font-semibold">สลับเป็น ผู้ยื่นเรื่อง (Requester) ทันที</button>` : ""}
+                </div>
+              `}
+            </div>
+
+            <!-- Document Content & Audit Trail -->
+            <div class="bg-white rounded-2xl border border-slate-200 p-6 space-y-4">
+              <div class="flex justify-between items-start border-b border-slate-200 pb-3">
+                <div>
+                  <span class="text-xs text-slate-400 font-bold">บันทึกข้อความ (OFFICIAL MEMO) • ${selectedMemo.category}</span>
+                  <h3 class="text-lg font-bold text-slate-900">${selectedMemo.subject}</h3>
+                </div>
+                <div class="text-right text-xs bg-slate-50 px-3 py-2 rounded-xl border border-slate-200">
+                  <div><strong>เลขทะเบียน:</strong> <span class="font-mono font-bold text-indigo-700">${selectedMemo.documentNumber || "รอสารบรรณออกเลข"}</span></div>
+                  <div><strong>รหัสอ้างอิง:</strong> ${selectedMemo.id}</div>
+                </div>
+              </div>
+              <div class="text-sm text-slate-800 bg-slate-50 p-4 rounded-xl border border-slate-200">${selectedMemo.content}</div>
+              <div>
+                <h4 class="text-xs font-bold text-slate-700 uppercase mb-2">ประวัติการเดินเอกสาร (Audit Trail)</h4>
+                <div class="space-y-2">
+                  ${selectedMemo.auditTrail.map((a, idx) => `
+                    <div class="p-3 rounded-xl bg-slate-50 border border-slate-200 text-xs">
+                      <div class="flex justify-between font-bold text-slate-900">
+                        <span>#${idx+1} ${a.actorName} (${a.actorRole})</span>
+                        <span class="text-slate-500 font-normal">${a.timestamp}</span>
+                      </div>
+                      <div class="text-slate-700 mt-0.5">${a.action}</div>
+                      ${a.comment ? `<div class="text-slate-600 italic mt-1">“${a.comment}”</div>` : ""}
+                    </div>
+                  `).join("")}
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      `;
+    }
+
+    function renderLeaves() {
+      return `
+        <div class="space-y-6">
+          <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+            ${Object.keys(state.leaveBalance).map(k => {
+              const q = state.leaveBalance[k];
+              return `
+                <div class="bg-white rounded-2xl border border-slate-200 p-5">
+                  <div class="flex justify-between text-xs font-bold text-slate-700">
+                    <span>${q.label}</span>
+                    <span class="text-indigo-600">คงเหลือ ${q.total - q.used} วัน</span>
+                  </div>
+                  <div class="text-2xl font-bold text-slate-900 mt-2">ใช้ไป ${q.used} / ${q.total} วัน</div>
+                </div>
+              `;
+            }).join("")}
+          </div>
+
+          <div class="grid grid-cols-1 lg:grid-cols-12 gap-6">
+            <form onsubmit="createNewLeave(event)" class="lg:col-span-5 bg-white rounded-2xl border border-slate-200 p-5 space-y-3">
+              <h4 class="font-bold text-sm text-slate-900">ยื่นใบลาออนไลน์ใหม่ (Direct Flow: Requester → Approver)</h4>
+              <select id="newLeaveType" class="w-full px-3 py-2 text-xs rounded-lg border border-slate-300">
+                <option value="vacation">ลาพักผ่อนประจำปี (Vacation Leave)</option>
+                <option value="sick">ลาป่วย (Sick Leave)</option>
+                <option value="personal">ลากิจธุระจำเป็น (Personal Leave)</option>
+              </select>
+              <div class="grid grid-cols-3 gap-2">
+                <input id="newLeaveStart" type="date" value="2026-12-01" class="px-2 py-2 text-xs rounded-lg border border-slate-300" />
+                <input id="newLeaveEnd" type="date" value="2026-12-02" class="px-2 py-2 text-xs rounded-lg border border-slate-300" />
+                <input id="newLeaveDays" type="number" value="2" min="1" class="px-2 py-2 text-xs rounded-lg border border-slate-300" />
+              </div>
+              <textarea id="newLeaveReason" rows="2" required placeholder="ระบุเหตุผลการลา..." class="w-full px-3 py-2 text-xs rounded-lg border border-slate-300"></textarea>
+              <button type="submit" class="w-full py-2.5 rounded-xl bg-indigo-600 text-white text-xs font-semibold">ส่งใบลาให้หัวหน้าอนุมัติ</button>
+            </form>
+
+            <div class="lg:col-span-7 bg-white rounded-2xl border border-slate-200 p-5 space-y-3">
+              <div class="flex justify-between items-center">
+                <h4 class="font-bold text-sm text-slate-900">รายการใบลาทั้งหมด (${state.leaves.length})</h4>
+                ${state.currentRole !== "approver" ? `<button onclick="switchRole('approver')" class="px-3 py-1 rounded-lg bg-emerald-600 text-white text-xs font-semibold">สลับเป็น ผู้อนุมัติ (Approver) เพื่อกดอนุมัติใบลา</button>` : ""}
+              </div>
+              <div class="divide-y divide-slate-100">
+                ${state.leaves.map(l => {
+                  const b = getStatusBadge(l.status);
+                  return `
+                    <div class="py-3.5 flex flex-wrap items-center justify-between gap-3">
+                      <div class="space-y-1 text-xs">
+                        <div class="flex items-center gap-2">
+                          <span class="font-mono font-bold text-indigo-600">${l.id}</span>
+                          <span class="font-bold text-slate-900">${state.leaveBalance[l.leaveType].label} (${l.days} วัน)</span>
+                          <span class="px-2 py-0.5 rounded-full border ${b.cls}">${b.label}</span>
+                        </div>
+                        <div class="text-slate-600">ช่วงวันที่: ${l.startDate} ถึง ${l.endDate} • เหตุผล: ${l.reason}</div>
+                      </div>
+                      ${l.status === "Pending Approval" && state.currentRole === "approver" ? `
+                        <button onclick="approveLeave('${l.id}')" class="px-3.5 py-2 rounded-xl bg-emerald-600 text-white text-xs font-semibold">อนุมัติ & หักวันลา (${l.days} วัน)</button>
+                      ` : ""}
+                    </div>
+                  `;
+                }).join("")}
+              </div>
+            </div>
+          </div>
+        </div>
+      `;
+    }
+
+    function renderArchitecture() {
+      return `
+        <div class="bg-white rounded-2xl border border-slate-200 p-6 space-y-6">
+          <div>
+            <h2 class="text-lg font-bold text-slate-900">สรุปสถาปัตยกรรม Flow & Stack ของระบบ E-Office (สำหรับนำเสนออาจารย์)</h2>
+            <p class="text-xs text-slate-500">เปรียบเทียบความแตกต่างของ Flow งานสารบรรณ vs งานบุคคล และเปรียบเทียบ Prototype Stack vs Enterprise Stack</p>
+          </div>
+          <div class="grid grid-cols-1 md:grid-cols-2 gap-4 text-xs">
+            <div class="p-4 rounded-xl bg-slate-50 border border-slate-200 space-y-2">
+              <div class="font-bold text-indigo-700 text-sm">1. FLOW: ระบบสารบรรณ & บันทึกข้อความ (3-Role State Machine)</div>
+              <div>• <strong>Requester (พนักงาน):</strong> สร้างบันทึกข้อความ (<code>Draft</code>) → ส่งเรื่องเข้าสารบรรณ (<code>Pending Clerk</code>)</div>
+              <div>• <strong>Clerk (เจ้าหน้าที่สารบรรณ):</strong> ตรวจสอบรูปแบบ ออกเลขทะเบียนหนังสือ (<code>บค xxx/2569</code>) → ส่งต่อผู้บริหาร (<code>Pending Approval</code>) หรือตีกลับให้แก้ไข (<code>Returned for Revision</code>)</div>
+              <div>• <strong>Approver (ผู้อำนวยการฝ่าย):</strong> พิจารณาลงนามอนุมัติ (<code>Approved</code>) หรือไม่อนุมัติ (<code>Rejected</code>) พร้อมบันทึก <code>Audit Trail</code></div>
+            </div>
+            <div class="p-4 rounded-xl bg-slate-50 border border-slate-200 space-y-2">
+              <div class="font-bold text-emerald-700 text-sm">2. STACK: ชุดเทคโนโลยี (Prototype vs Production)</div>
+              <div>• <strong>Frontend & UI:</strong> Next.js (React + TypeScript) + Tailwind CSS + Lucide Icons</div>
+              <div>• <strong>Workflow State Engine:</strong> React Context State Machine + <code>localStorage</code> (Production ใช้ PostgreSQL + Prisma ORM)</div>
+              <div>• <strong>Multi-Role Demo Mechanism:</strong> Instant Role Switcher Bar ให้สลับบทบาทสาธิต Flow ได้ในหน้าจอเดียว (บันทึกใน ADR-0001)</div>
+            </div>
+          </div>
+        </div>
+      `;
+    }
+
+    render();
+  </script>
+</body>
+</html>
