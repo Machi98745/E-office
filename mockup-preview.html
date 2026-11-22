@@ -3,13 +3,13 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>E-Office Enterprise Suite | ระบบสำนักงานอิเล็กทรอนิกส์ตัวเต็ม (Flow & Stack)</title>
+  <title>E-Office Enterprise Suite v2.0 | ระบบสำนักงานอิเล็กทรอนิกส์</title>
   <script src="https://cdn.tailwindcss.com"></script>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Prompt:wght@300;400;500;600;700&display=swap" rel="stylesheet">
   <style>
-    body { font-family: 'Prompt', sans-serif; background-color: #f8fafc; color: #0f172a; }
+    body { font-family: 'Prompt', sans-serif; background-color: #f1f5f9; color: #0f172a; }
     @media print {
       .no-print { display: none !important; }
     }
@@ -19,7 +19,7 @@
   <div id="app"></div>
 
   <script>
-    const STORAGE_KEY = "e_office_enterprise_v2";
+    const STORAGE_KEY = "e_office_enterprise_v3";
 
     const ACTORS = {
       requester: {
@@ -50,7 +50,7 @@
         email: "director.it@eoffice.local",
         phone: "02-123-4500 ต่อ 400",
         name: "ดร.กิตติพงศ์ เจริญผล",
-        title: "ผู้อำนวยการฝ่าย (ผู้มีอำนาจอนุมัติ / Approver)",
+        title: "ผู้อำนวยการฝ่าย (ผู้อนุมัติ / Approver)",
         department: "ฝ่ายพัฒนาระบบดิจิทัล",
         badgeColor: "bg-emerald-600",
         description: "พิจารณาลงนามอนุมัติ (e-Signature) ไม่อนุมัติ หรือส่งกลับแก้ไข ทั้งบันทึกข้อความและใบลา"
@@ -68,7 +68,11 @@
       currentRole: "requester",
       activeTab: "dashboard",
       selectedMemoId: "MEMO-001",
+      statusFilter: "ALL",
+      searchQuery: "",
       showPrintModal: false,
+      showNewMemoModal: false,
+      toast: null,
       docRunningNumber: 43,
       memos: [
         {
@@ -261,27 +265,15 @@
 
     function getStatusBadge(status) {
       const map = {
-        "Draft": { label: "ฉบับร่าง (Draft)", cls: "bg-slate-100 text-slate-700 border-slate-300" },
-        "Pending Clerk": { label: "รอสารบรรณออกเลข (Pending Clerk)", cls: "bg-amber-50 text-amber-800 border-amber-300" },
-        "Pending Approval": { label: "รอหัวหน้าอนุมัติ (Pending Approval)", cls: "bg-blue-50 text-blue-800 border-blue-300" },
-        "Returned for Revision": { label: "ส่งกลับแก้ไข (Returned for Revision)", cls: "bg-orange-50 text-orange-800 border-orange-300" },
-        "Approved": { label: "อนุมัติแล้ว (Approved)", cls: "bg-emerald-50 text-emerald-800 border-emerald-300" },
-        "Rejected": { label: "ไม่อนุมัติ (Rejected)", cls: "bg-rose-50 text-rose-800 border-rose-300" }
+        "Draft": { label: "ฉบับร่าง (Draft)", dot: "bg-slate-400", cls: "bg-slate-100 text-slate-700 border-slate-300" },
+        "Pending Clerk": { label: "รอสารบรรณออกเลข", dot: "bg-amber-500", cls: "bg-amber-50 text-amber-800 border-amber-300" },
+        "Pending Approval": { label: "รอผู้บริหารอนุมัติ", dot: "bg-blue-500", cls: "bg-blue-50 text-blue-800 border-blue-300" },
+        "Returned for Revision": { label: "ส่งกลับแก้ไข", dot: "bg-orange-500", cls: "bg-orange-50 text-orange-800 border-orange-300" },
+        "Approved": { label: "อนุมัติแล้ว", dot: "bg-emerald-500", cls: "bg-emerald-50 text-emerald-800 border-emerald-300" },
+        "Rejected": { label: "ไม่อนุมัติ", dot: "bg-rose-500", cls: "bg-rose-50 text-rose-800 border-rose-300" }
       };
-      return map[status] || { label: status, cls: "bg-slate-100 text-slate-700" };
+      return map[status] || { label: status, dot: "bg-slate-400", cls: "bg-slate-100 text-slate-700" };
     }
-
-    window.loginRole = (role) => { state.currentRole = role; state.isAuthenticated = true; saveState(); };
-    window.logoutApp = () => { state.isAuthenticated = false; saveState(); };
-    window.switchRole = (role) => { state.currentRole = role; saveState(); };
-    window.switchTab = (tab) => { state.activeTab = tab; saveState(); };
-    window.selectMemo = (id) => { state.selectedMemoId = id; state.activeTab = "memos"; saveState(); };
-    window.togglePrint = (show) => { state.showPrintModal = show; saveState(); };
-    window.resetDemo = () => {
-      localStorage.removeItem(STORAGE_KEY);
-      state = JSON.parse(JSON.stringify(INITIAL_STATE));
-      render();
-    };
 
     function nextId(items, prefix) {
       const maxNum = items.reduce((max, item) => {
@@ -291,6 +283,21 @@
       }, 0);
       return `${prefix}-${String(maxNum + 1).padStart(3, "0")}`;
     }
+
+    window.loginRole = (role) => { state.currentRole = role; state.isAuthenticated = true; saveState(); };
+    window.logoutApp = () => { state.isAuthenticated = false; saveState(); };
+    window.switchRole = (role) => { state.currentRole = role; state.toast = null; saveState(); };
+    window.switchTab = (tab) => { state.activeTab = tab; saveState(); };
+    window.selectMemo = (id) => { state.selectedMemoId = id; state.activeTab = "memos"; saveState(); };
+    window.setFilter = (f) => { state.statusFilter = f; saveState(); };
+    window.togglePrint = (show) => { state.showPrintModal = show; saveState(); };
+    window.toggleNewMemo = (show) => { state.showNewMemoModal = show; saveState(); };
+    window.closeToast = () => { state.toast = null; saveState(); };
+    window.resetDemo = () => {
+      localStorage.removeItem(STORAGE_KEY);
+      state = JSON.parse(JSON.stringify(INITIAL_STATE));
+      render();
+    };
 
     window.clerkIssueNumber = (memoId) => {
       const m = state.memos.find(x => x.id === memoId);
@@ -310,6 +317,11 @@
         action: `ออกเลขทะเบียน ${docNo} และส่งต่อผู้อนุมัติ`,
         comment: comment || "ตรวจสอบรูปแบบเอกสารและไฟล์แนบถูกต้องครบถ้วน"
       });
+      state.toast = {
+        message: `ออกเลขทะเบียน ${docNo} สำเร็จ! ส่งเรื่องต่อให้ผู้อำนวยการฝ่ายแล้ว`,
+        nextRole: "approver",
+        nextLabel: "คลิกเพื่อสลับเป็น 3. ผู้อำนวยการ (Approver) ทันที ➔"
+      };
       saveState();
     };
 
@@ -327,6 +339,11 @@
         action: "ส่งกลับให้ผู้ยื่นแก้ไข (Returned for Revision)",
         comment
       });
+      state.toast = {
+        message: "ส่งกลับเอกสารให้พนักงานผู้ยื่นแก้ไขแล้ว",
+        nextRole: "requester",
+        nextLabel: "สลับไปมุมมอง 1. พนักงานผู้ยื่นเรื่อง ➔"
+      };
       saveState();
     };
 
@@ -347,6 +364,9 @@
         action: "ลงนามอนุมัติด้วยลายมือชื่ออิเล็กทรอนิกส์ (e-Signature Approved)",
         comment
       });
+      state.toast = {
+        message: "ลงนามอนุมัติ e-Signature เสร็จสมบูรณ์! สามารถกดปุ่ม 'พิมพ์หนังสือราชการ / PDF' ได้เลย"
+      };
       saveState();
     };
 
@@ -363,6 +383,7 @@
         action: "ไม่อนุมัติบันทึกข้อความ (Rejected - ปิดเรื่อง)",
         comment
       });
+      state.toast = { message: "บันทึกผลการไม่อนุมัติเอกสารเรียบร้อยแล้ว" };
       saveState();
     };
 
@@ -379,6 +400,11 @@
         action: "แก้ไขข้อมูลและส่งเรื่องให้สารบรรณตรวจสอบอีกครั้ง",
         comment: "ปรับปรุงเนื้อหาตามข้อเสนอแนะเรียบร้อยแล้วครับ"
       });
+      state.toast = {
+        message: "ส่งบันทึกข้อความเข้าห้องสารบรรณแล้ว!",
+        nextRole: "clerk",
+        nextLabel: "คลิกเพื่อสลับเป็น 2. สารบรรณ (Clerk) ทันที ➔"
+      };
       saveState();
     };
 
@@ -421,7 +447,15 @@
       };
       state.memos.unshift(newMemo);
       state.selectedMemoId = newId;
+      state.showNewMemoModal = false;
       state.activeTab = "memos";
+      state.toast = submitImmediately
+        ? {
+            message: `สร้างและส่ง "${subject}" เข้าห้องสารบรรณแล้ว!`,
+            nextRole: "clerk",
+            nextLabel: "คลิกเพื่อสลับเป็น 2. สารบรรณ (Clerk) ทันที ➔"
+          }
+        : { message: `บันทึกฉบับร่าง "${subject}" เรียบร้อยแล้ว` };
       saveState();
     };
 
@@ -462,6 +496,11 @@
           }
         ]
       });
+      state.toast = {
+        message: `ยื่นใบลาจำนวน ${days} วันสำเร็จ! ส่งตรงถึงผู้อำนวยการฝ่ายแล้ว`,
+        nextRole: "approver",
+        nextLabel: "สลับเป็น 3. ผู้อำนวยการ (Approver) เพื่อกดอนุมัติใบลา ➔"
+      };
       saveState();
     };
 
@@ -485,6 +524,7 @@
         comment: lv.approverComment
       });
       state.leaveBalance[lv.leaveType].used = Math.min(bal.total, bal.used + lv.days);
+      state.toast = { message: `อนุมัติใบลา ${lv.id} และหักวันลาคงเหลือ ${lv.days} วันอัตโนมัติแล้ว!` };
       saveState();
     };
 
@@ -501,6 +541,7 @@
         action: "ไม่อนุมัติใบลา (Rejected)",
         comment: lv.approverComment
       });
+      state.toast = { message: `ไม่อนุมัติใบลา ${lv.id}` };
       saveState();
     };
 
@@ -526,6 +567,7 @@
         attendees,
         status: "Confirmed"
       });
+      state.toast = { message: `จอง ${room.name} วันที่ ${date} สำเร็จ!` };
       saveState();
     };
 
@@ -543,6 +585,7 @@
         authorName: ACTORS[state.currentRole].name,
         postedAt: nowThai()
       });
+      state.toast = { message: "เผยแพร่ประกาศข่าวสารองค์กรเรียบร้อยแล้ว!" };
       saveState();
     };
 
@@ -576,10 +619,10 @@
                   ${["requester", "clerk", "approver"].map((r, i) => {
                     const a = ACTORS[r];
                     return `
-                      <button onclick="loginRole('${r}')" class="w-full text-left p-3.5 rounded-2xl border border-slate-200 hover:border-indigo-500 hover:bg-indigo-50/50 transition flex items-center justify-between">
+                      <button onclick="loginRole('${r}')" class="w-full text-left p-4 rounded-2xl border-2 border-slate-200 hover:border-indigo-500 hover:bg-indigo-50/50 transition flex items-center justify-between">
                         <div>
                           <div class="text-sm font-bold text-slate-900">${i+1}. ${a.name} — ${a.title}</div>
-                          <div class="text-xs text-slate-500">${a.empId} • ${a.department} (งานรอ: ${counts[r]} รายการ)</div>
+                          <div class="text-xs text-slate-500 mt-0.5">${a.empId} • ${a.department} (งานรอ: <strong class="text-rose-600">${counts[r]} รายการ</strong>)</div>
                         </div>
                         <span class="text-xs font-bold text-indigo-600">เข้าสู่ระบบ →</span>
                       </button>
@@ -596,81 +639,127 @@
       const actor = ACTORS[state.currentRole];
       const selectedMemo = state.memos.find(m => m.id === state.selectedMemoId) || state.memos[0];
 
+      const navItems = [
+        { id: "dashboard", label: "แดชบอร์ด & กล่องงาน", sub: "ภาพรวมและงานด่วน", badge: counts[state.currentRole], highlight: counts[state.currentRole] > 0 },
+        { id: "memos", label: "สารบรรณ & บันทึกข้อความ", sub: "ออกเลข • อนุมัติ • พิมพ์ PDF", badge: state.memos.length },
+        { id: "leaves", label: "ระบบลางานออนไลน์", sub: "ยื่นใบลา • เช็คสิทธิ์คงเหลือ", badge: state.leaves.length },
+        { id: "bookings", label: "จองห้องประชุม", sub: "ตารางห้องประชุมองค์กร", badge: state.bookings.length },
+        { id: "announcements", label: "ประกาศ & บุคลากร", sub: "ข่าวสารและสายบังคับบัญชา" },
+        { id: "architecture", label: "สรุป Flow & Stack", sub: "สไลด์สำหรับนำเสนออาจารย์" }
+      ];
+
       document.getElementById("app").innerHTML = `
-        <!-- Top Role Switcher Bar -->
-        <div class="bg-slate-900 text-white border-b border-slate-800 sticky top-0 z-30 shadow-md no-print">
-          <div class="max-w-7xl mx-auto px-4 py-2.5 flex flex-wrap items-center justify-between gap-3">
-            <div class="flex items-center gap-2">
-              <span class="px-2.5 py-1 rounded-full text-xs font-semibold bg-indigo-500/20 text-indigo-300 border border-indigo-400/30">
-                แถบสลับบทบาทสาธิตอาจารย์ (Role Switcher)
-              </span>
-              <span class="px-2.5 py-1 rounded-full text-[11px] bg-emerald-500/20 text-emerald-300 border border-emerald-400/30">
-                ● Database Connected
-              </span>
-            </div>
-            <div class="flex flex-wrap items-center gap-2">
-              ${["requester", "clerk", "approver"].map((r, i) => `
-                <button onclick="switchRole('${r}')" class="flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-medium transition ${state.currentRole === r ? 'bg-white text-slate-900 ring-2 ring-indigo-400 font-bold' : 'bg-slate-800 text-slate-300 hover:bg-slate-700'}">
-                  <span>${i+1}. ${r === 'requester' ? 'พนักงาน (Requester)' : r === 'clerk' ? 'สารบรรณ (Clerk)' : 'ผู้อนุมัติ (Approver)'}</span>
-                  ${counts[r] > 0 ? `<span class="px-1.5 py-0.5 rounded-full text-[10px] font-bold ${state.currentRole === r ? 'bg-rose-600 text-white' : 'bg-slate-700 text-amber-300'}">${counts[r]} งานรอ</span>` : ''}
-                </button>
-              `).join("")}
-              <button onclick="resetDemo()" class="px-2.5 py-1.5 rounded-lg text-xs font-medium bg-rose-950 text-rose-200 border border-rose-800 hover:bg-rose-900">
-                Reset DB
+        <div class="min-h-screen flex bg-slate-100/80 text-slate-900">
+          <!-- LEFT SIDEBAR -->
+          <aside class="w-72 bg-slate-900 text-white flex flex-col justify-between shrink-0 sticky top-0 h-screen overflow-y-auto no-print shadow-xl">
+            <div class="p-5 space-y-6">
+              <div class="flex items-center gap-3 px-1">
+                <div class="w-11 h-11 rounded-2xl bg-gradient-to-br from-indigo-500 to-blue-600 flex items-center justify-center font-bold text-lg shadow-lg">E</div>
+                <div>
+                  <div class="flex items-center gap-2">
+                    <span class="font-bold text-base">E-Office</span>
+                    <span class="text-[10px] px-2 py-0.5 rounded-full bg-indigo-500/20 text-indigo-300 border border-indigo-400/30 font-semibold">v2.0</span>
+                  </div>
+                  <p class="text-[11px] text-slate-400">ระบบสำนักงานอิเล็กทรอนิกส์</p>
+                </div>
+              </div>
+
+              <button onclick="switchRole('requester'); toggleNewMemo(true)" class="w-full py-3 px-4 rounded-2xl bg-gradient-to-r from-indigo-500 to-blue-600 hover:from-indigo-600 hover:to-blue-700 text-white font-bold text-xs shadow-lg transition">
+                + สร้างบันทึกข้อความใหม่
               </button>
-              <button onclick="logoutApp()" class="px-2.5 py-1.5 rounded-lg text-xs font-medium bg-slate-800 text-slate-200 border border-slate-700 hover:bg-slate-700">
-                หน้า Login
-              </button>
+
+              <nav class="space-y-1.5">
+                <div class="px-3 pb-1 text-[10px] font-bold uppercase tracking-wider text-slate-400">เมนูหลักของระบบ (Modules)</div>
+                ${navItems.map(item => {
+                  const active = state.activeTab === item.id;
+                  return `
+                    <button onclick="switchTab('${item.id}')" class="w-full flex items-center justify-between px-3.5 py-3 rounded-2xl text-left transition-all ${active ? 'bg-indigo-600 text-white shadow-md' : 'text-slate-300 hover:bg-slate-800 hover:text-white'}">
+                      <div>
+                        <div class="text-xs font-bold">${item.label}</div>
+                        <div class="text-[10px] mt-0.5 ${active ? 'text-indigo-200' : 'text-slate-400'}">${item.sub}</div>
+                      </div>
+                      ${item.badge ? `<span class="px-2 py-0.5 rounded-full text-[10px] font-bold ${item.highlight ? 'bg-rose-500 text-white' : active ? 'bg-indigo-800 text-indigo-100' : 'bg-slate-800 text-slate-300'}">${item.badge}</span>` : ''}
+                    </button>
+                  `;
+                }).join("")}
+              </nav>
             </div>
+
+            <div class="p-4 border-t border-slate-800 bg-slate-950/60 space-y-3">
+              <div class="flex items-center gap-3">
+                <div class="w-10 h-10 rounded-2xl ${actor.badgeColor} text-white flex items-center justify-center font-bold text-sm shrink-0">${actor.name.slice(0,1)}</div>
+                <div class="min-w-0">
+                  <div class="text-xs font-bold text-white truncate">${actor.name}</div>
+                  <div class="text-[11px] text-indigo-300 truncate">${actor.title}</div>
+                </div>
+              </div>
+              <div class="grid grid-cols-2 gap-2">
+                <button onclick="resetDemo()" class="py-2 px-2.5 rounded-xl bg-rose-950/80 hover:bg-rose-900 text-rose-200 border border-rose-800/50 text-[11px] font-semibold">รีเซ็ตข้อมูล</button>
+                <button onclick="logoutApp()" class="py-2 px-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 text-[11px] font-semibold">หน้า Login</button>
+              </div>
+            </div>
+          </aside>
+
+          <!-- RIGHT CONTENT AREA -->
+          <div class="flex-1 flex flex-col min-w-0">
+            <!-- Top Guided 1 -> 2 -> 3 Role Switcher Bar -->
+            <header class="bg-white border-b border-slate-200 sticky top-0 z-20 shadow-sm no-print">
+              <div class="max-w-6xl mx-auto px-6 py-3 flex flex-wrap items-center justify-between gap-4">
+                <span class="px-3 py-1 rounded-full text-xs font-bold bg-indigo-50 text-indigo-700 border border-indigo-200">
+                  ✨ สลับมุมมองตามลำดับ Flow (1 → 2 → 3)
+                </span>
+                <div class="flex flex-wrap items-center gap-2">
+                  ${[
+                    { r: "requester", step: "1", label: "พนักงานยื่นเรื่อง", cls: "bg-blue-600 text-white ring-2 ring-blue-300" },
+                    { r: "clerk", step: "2", label: "สารบรรณออกเลข", cls: "bg-amber-600 text-white ring-2 ring-amber-300" },
+                    { r: "approver", step: "3", label: "ผู้อำนวยการอนุมัติ", cls: "bg-emerald-600 text-white ring-2 ring-emerald-300" }
+                  ].map((item, idx) => {
+                    const sel = state.currentRole === item.r;
+                    const cnt = counts[item.r];
+                    return `
+                      <button onclick="switchRole('${item.r}')" class="flex items-center gap-2 px-3.5 py-2 rounded-xl text-xs font-bold transition ${sel ? item.cls : 'bg-slate-100 text-slate-700 hover:bg-slate-200'}">
+                        <span class="w-5 h-5 rounded-full flex items-center justify-center text-[11px] ${sel ? 'bg-white/25 text-white' : 'bg-white text-slate-700'}">${item.step}</span>
+                        <span>${item.label}</span>
+                        ${cnt > 0 ? `<span class="px-1.5 py-0.5 rounded-full text-[10px] font-bold ${sel ? 'bg-white text-slate-900' : 'bg-rose-500 text-white'}">${cnt}</span>` : ''}
+                      </button>
+                      ${idx < 2 ? `<span class="text-slate-400 text-xs">➔</span>` : ''}
+                    `;
+                  }).join("")}
+                </div>
+              </div>
+
+              ${state.toast ? `
+                <div class="bg-emerald-900 text-white px-6 py-2.5 border-t border-emerald-700 flex flex-wrap items-center justify-between gap-3">
+                  <div class="text-xs font-medium">✅ ${state.toast.message}</div>
+                  <div class="flex items-center gap-2">
+                    ${state.toast.nextRole ? `
+                      <button onclick="switchRole('${state.toast.nextRole}')" class="px-3 py-1 rounded-lg bg-white text-emerald-950 text-xs font-bold hover:bg-emerald-50 shadow-sm">
+                        ${state.toast.nextLabel}
+                      </button>
+                    ` : ''}
+                    <button onclick="closeToast()" class="text-emerald-200 hover:text-white text-xs font-bold px-2">✕</button>
+                  </div>
+                </div>
+              ` : ''}
+            </header>
+
+            <main class="flex-1 max-w-6xl w-full mx-auto px-6 py-6 no-print">
+              ${state.activeTab === "dashboard" ? renderDashboard(actor, counts) : ""}
+              ${state.activeTab === "memos" ? renderMemos(selectedMemo, actor) : ""}
+              ${state.activeTab === "leaves" ? renderLeaves() : ""}
+              ${state.activeTab === "bookings" ? renderBookings() : ""}
+              ${state.activeTab === "announcements" ? renderAnnouncements() : ""}
+              ${state.activeTab === "architecture" ? renderArchitecture() : ""}
+            </main>
           </div>
         </div>
 
-        <!-- Header -->
-        <header class="bg-white border-b border-slate-200 no-print">
-          <div class="max-w-7xl mx-auto px-4 py-4 flex flex-wrap items-center justify-between gap-4">
-            <div>
-              <div class="flex items-center gap-2">
-                <h1 class="text-lg font-bold text-slate-900">E-Office Enterprise Suite</h1>
-                <span class="text-xs px-2 py-0.5 rounded bg-indigo-50 text-indigo-700 font-semibold border border-indigo-200">Full-Stack Edition v2.0</span>
-              </div>
-              <p class="text-xs text-slate-500">ระบบสำนักงานอิเล็กทรอนิกส์ครบวงจร (สารบรรณ e-Saraban • อนุมัติ e-Signature • ลางาน e-Leave • จองห้องประชุม e-Booking)</p>
-            </div>
-            <div class="bg-slate-50 border border-slate-200 rounded-xl px-4 py-2 text-xs">
-              <div class="font-bold text-slate-900">ผู้ใช้งาน: ${actor.name} (${actor.empId}) <span class="text-indigo-600">— ${actor.title}</span></div>
-              <div class="text-slate-500">${actor.department} • ${actor.email}</div>
-            </div>
-          </div>
-
-          <div class="max-w-7xl mx-auto px-4 flex items-center gap-1 overflow-x-auto">
-            ${[
-              { id: "dashboard", label: `1. แดชบอร์ด & กล่องงาน (${counts[state.currentRole]})` },
-              { id: "memos", label: `2. สารบรรณ & บันทึกข้อความ (${state.memos.length})` },
-              { id: "leaves", label: `3. ระบบลางาน (${state.leaves.length})` },
-              { id: "bookings", label: `4. จองห้องประชุม (${state.bookings.length})` },
-              { id: "announcements", label: `5. ประกาศ & โครงสร้างองค์กร` },
-              { id: "architecture", label: "6. สไลด์สรุป Flow & Stack (นำเสนออาจารย์)" }
-            ].map(t => `
-              <button onclick="switchTab('${t.id}')" class="px-3.5 py-3 text-xs font-semibold border-b-2 transition whitespace-nowrap ${state.activeTab === t.id ? 'border-indigo-600 text-indigo-600 font-bold' : 'border-transparent text-slate-600 hover:text-slate-900'}">
-                ${t.label}
-              </button>
-            `).join("")}
-          </div>
-        </header>
-
-        <main class="max-w-7xl w-full mx-auto px-4 py-6 flex-1 no-print">
-          ${state.activeTab === "dashboard" ? renderDashboard(actor) : ""}
-          ${state.activeTab === "memos" ? renderMemos(selectedMemo, actor) : ""}
-          ${state.activeTab === "leaves" ? renderLeaves() : ""}
-          ${state.activeTab === "bookings" ? renderBookings() : ""}
-          ${state.activeTab === "announcements" ? renderAnnouncements() : ""}
-          ${state.activeTab === "architecture" ? renderArchitecture() : ""}
-        </main>
-
         ${state.showPrintModal ? renderPrintModal(selectedMemo) : ""}
+        ${state.showNewMemoModal ? renderNewMemoModal() : ""}
       `;
     }
 
-    function renderDashboard(actor) {
+    function renderDashboard(actor, counts) {
       const inboxMemos = state.memos.filter(m =>
         state.currentRole === "requester" ? (m.status === "Draft" || m.status === "Returned for Revision") :
         state.currentRole === "clerk" ? m.status === "Pending Clerk" :
@@ -679,37 +768,58 @@
 
       return `
         <div class="space-y-6">
-          <div class="bg-gradient-to-r from-indigo-600 to-blue-700 rounded-2xl p-6 text-white flex flex-wrap items-center justify-between gap-4">
-            <div class="space-y-1 max-w-2xl">
-              <div class="text-xs font-semibold uppercase tracking-wider text-indigo-200">กล่องงานประจำตำแหน่ง (${actor.title})</div>
-              <h2 class="text-xl font-bold">สวัสดีคุณ${actor.name} (${actor.department})</h2>
+          <div class="bg-gradient-to-r from-indigo-600 via-blue-600 to-indigo-700 rounded-3xl p-7 text-white shadow-md flex flex-wrap items-center justify-between gap-6">
+            <div class="space-y-2 max-w-2xl">
+              <div class="inline-block px-3 py-1 rounded-full bg-white/15 text-xs font-semibold">มุมมองปัจจุบัน: ${actor.title}</div>
+              <h2 class="text-2xl font-bold">สวัสดีคุณ${actor.name}</h2>
               <p class="text-sm text-indigo-100">${actor.description}</p>
             </div>
-            <div class="flex gap-2">
-              <button onclick="switchTab('memos')" class="px-4 py-2.5 rounded-xl bg-white text-indigo-700 font-bold text-xs shadow">ไปที่ระบบบันทึกข้อความ</button>
-              <button onclick="switchTab('architecture')" class="px-4 py-2.5 rounded-xl bg-indigo-500/40 border border-white/30 text-white font-semibold text-xs">เปิดสไลด์ Flow & Stack</button>
+            <div class="flex gap-3">
+              <button onclick="switchRole('requester'); toggleNewMemo(true)" class="px-5 py-3 rounded-2xl bg-white text-indigo-700 font-bold text-xs shadow-md hover:bg-indigo-50">+ สร้างบันทึกข้อความใหม่</button>
+              <button onclick="switchTab('architecture')" class="px-4 py-3 rounded-2xl bg-white/15 border border-white/25 text-white font-semibold text-xs hover:bg-white/25">เปิดสไลด์ Flow & Stack</button>
             </div>
           </div>
 
-          <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
-            <div class="md:col-span-2 bg-white rounded-2xl border border-slate-200 p-5 space-y-4">
-              <h3 class="font-bold text-slate-900">กล่องงานรอดำเนินการของ ${actor.title} (${inboxMemos.length})</h3>
+          <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+            <div class="bg-white p-5 rounded-3xl border border-slate-200 shadow-sm">
+              <div class="text-xs font-bold text-slate-500">งานในกล่องงานของคุณ</div>
+              <div class="text-3xl font-bold text-slate-900 mt-3">${counts[state.currentRole]} <span class="text-sm font-medium text-slate-500">รายการ</span></div>
+            </div>
+            <div class="bg-white p-5 rounded-3xl border border-slate-200 shadow-sm">
+              <div class="text-xs font-bold text-slate-500">รอสารบรรณออกเลข</div>
+              <div class="text-3xl font-bold text-slate-900 mt-3">${state.memos.filter(m => m.status === 'Pending Clerk').length} <span class="text-sm font-medium text-slate-500">เรื่อง</span></div>
+            </div>
+            <div class="bg-white p-5 rounded-3xl border border-slate-200 shadow-sm">
+              <div class="text-xs font-bold text-slate-500">รอผู้บริหารอนุมัติ</div>
+              <div class="text-3xl font-bold text-slate-900 mt-3">${counts.approver} <span class="text-sm font-medium text-slate-500">รายการ</span></div>
+            </div>
+            <div class="bg-white p-5 rounded-3xl border border-slate-200 shadow-sm">
+              <div class="text-xs font-bold text-slate-500">อนุมัติเสร็จสมบูรณ์</div>
+              <div class="text-3xl font-bold text-slate-900 mt-3">${state.memos.filter(m => m.status === 'Approved').length + state.leaves.filter(l => l.status === 'Approved').length} <span class="text-sm font-medium text-slate-500">รายการ</span></div>
+            </div>
+          </div>
+
+          <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+            <div class="lg:col-span-2 bg-white rounded-3xl border border-slate-200 shadow-sm overflow-hidden">
+              <div class="px-6 py-4 border-b border-slate-100 bg-slate-50/50 flex justify-between items-center">
+                <h3 class="font-bold text-sm text-slate-900">งานที่รอคุณดำเนินการตอนนี้ (${inboxMemos.length})</h3>
+              </div>
               <div class="divide-y divide-slate-100">
-                ${inboxMemos.length === 0 ? `<div class="py-8 text-center text-xs text-slate-500">ไม่มีงานค้างในบทบาทนี้ กดสลับบทบาทบนแถบสีดำด้านบนเพื่อดูงานในขั้นตอนถัดไปได้ทันที</div>` : ""}
+                ${inboxMemos.length === 0 ? `<div class="p-10 text-center text-xs text-slate-500">ไม่มีงานค้างในบทบาทนี้ กดปุ่มสลับมุมมอง <strong>1 → 2 → 3</strong> ด้านบนขวาเพื่อไปตรวจหรืออนุมัติงานในขั้นถัดไปได้ทันที</div>` : ""}
                 ${inboxMemos.map(m => {
                   const b = getStatusBadge(m.status);
                   return `
-                    <div class="py-3.5 flex flex-wrap items-center justify-between gap-3">
+                    <div class="p-5 hover:bg-slate-50 transition flex flex-wrap items-center justify-between gap-4">
                       <div class="space-y-1">
                         <div class="flex items-center gap-2">
-                          <span class="text-xs font-mono font-bold text-indigo-600">${m.documentNumber || m.id}</span>
-                          <span class="text-[11px] px-2 py-0.5 rounded-full border ${b.cls}">${b.label}</span>
+                          <span class="text-xs font-mono font-bold px-2 py-0.5 rounded bg-indigo-50 text-indigo-700">${m.documentNumber || m.id}</span>
+                          <span class="text-[11px] px-2.5 py-0.5 rounded-full border font-semibold ${b.cls}">${b.label}</span>
                         </div>
-                        <div class="font-semibold text-sm text-slate-900">${m.subject}</div>
-                        ${m.revisionNote ? `<div class="text-xs text-orange-800 bg-orange-50 border border-orange-200 rounded-lg px-2.5 py-1">หมายเหตุแก้ไข: ${m.revisionNote}</div>` : ""}
+                        <div class="font-bold text-sm text-slate-900">${m.subject}</div>
+                        ${m.revisionNote ? `<div class="text-xs text-orange-800 bg-orange-50 border border-orange-200 rounded-xl px-3 py-1.5">สิ่งที่ต้องแก้ไข: ${m.revisionNote}</div>` : ""}
                       </div>
-                      <button onclick="selectMemo('${m.id}')" class="px-3.5 py-2 rounded-xl bg-indigo-600 text-white text-xs font-semibold hover:bg-indigo-700">
-                        เปิดดำเนินการ →
+                      <button onclick="selectMemo('${m.id}')" class="px-4 py-2.5 rounded-2xl bg-indigo-600 text-white text-xs font-bold hover:bg-indigo-700 shadow-sm">
+                        เปิดดำเนินการ ➔
                       </button>
                     </div>
                   `;
@@ -717,15 +827,20 @@
               </div>
             </div>
 
-            <div class="bg-white rounded-2xl border border-slate-200 p-5 space-y-3">
-              <h3 class="font-bold text-sm text-slate-900">ประกาศองค์กรล่าสุด</h3>
-              ${state.announcements.map(a => `
-                <div class="p-3 rounded-xl bg-slate-50 border border-slate-200 text-xs space-y-1">
-                  <span class="px-2 py-0.5 rounded bg-indigo-100 text-indigo-800 font-bold text-[10px]">${a.category}</span>
-                  <div class="font-bold text-slate-900">${a.title}</div>
-                  <div class="text-slate-600">${a.content}</div>
-                </div>
-              `).join("")}
+            <div class="bg-white rounded-3xl border border-slate-200 shadow-sm p-6 space-y-3">
+              <h3 class="font-bold text-sm text-slate-900">💡 วิธีสาธิต Flow ง่ายๆ ใน 3 คลิก</h3>
+              <div onclick="switchRole('requester')" class="p-3.5 rounded-2xl bg-blue-50/70 border border-blue-200 text-xs cursor-pointer">
+                <div class="font-bold text-blue-900">1. พนักงานยื่นเรื่อง (Requester)</div>
+                <div class="text-slate-600 mt-0.5">สร้างบันทึกข้อความใหม่ หรือส่งงานที่แก้ไขแล้วเข้าห้องสารบรรณ</div>
+              </div>
+              <div onclick="switchRole('clerk')" class="p-3.5 rounded-2xl bg-amber-50/70 border border-amber-200 text-xs cursor-pointer">
+                <div class="font-bold text-amber-900">2. สารบรรณออกเลข (Clerk)</div>
+                <div class="text-slate-600 mt-0.5">ตรวจรูปแบบและกดออกเลขทะเบียนหนังสือราชการ <code>บค xxx/2569</code></div>
+              </div>
+              <div onclick="switchRole('approver')" class="p-3.5 rounded-2xl bg-emerald-50/70 border border-emerald-200 text-xs cursor-pointer">
+                <div class="font-bold text-emerald-900">3. ผู้อำนวยการอนุมัติ (Approver)</div>
+                <div class="text-slate-600 mt-0.5">กดลงนาม <code>e-Signature</code> แล้วกดปุ่มพิมพ์หนังสือราชการ PDF</div>
+              </div>
             </div>
           </div>
         </div>
@@ -734,142 +849,129 @@
 
     function renderMemos(selectedMemo, actor) {
       const b = getStatusBadge(selectedMemo.status);
+      const filtered = state.memos.filter(m => state.statusFilter === "ALL" || m.status === state.statusFilter);
       return `
-        <div class="grid grid-cols-1 lg:grid-cols-12 gap-6">
-          <div class="lg:col-span-5 space-y-4">
-            <form onsubmit="createNewMemo(event)" class="bg-white rounded-2xl border border-slate-200 p-4 space-y-3">
-              <div class="font-bold text-sm text-slate-900">+ สร้างบันทึกข้อความใหม่ (พร้อมแนบไฟล์จากเครื่อง)</div>
-              <input id="newMemoSubject" required placeholder="หัวข้อเรื่องบันทึกข้อความ..." class="w-full px-3 py-2 text-xs rounded-lg border border-slate-300" />
-              <div class="grid grid-cols-3 gap-2">
-                <select id="newMemoCategory" class="px-2 py-1.5 text-xs rounded-lg border border-slate-300">
-                  <option value="ขออนุมัติโครงการ">ขออนุมัติโครงการ</option>
-                  <option value="จัดซื้อจัดจ้าง">จัดซื้อจัดจ้าง</option>
-                  <option value="ขอเบิกงบประมาณ">ขอเบิกงบประมาณ</option>
-                </select>
-                <select id="newMemoUrgency" class="px-2 py-1.5 text-xs rounded-lg border border-slate-300">
-                  <option value="ปกติ">ชั้นความเร็ว: ปกติ</option>
-                  <option value="ด่วน">ด่วน</option>
-                  <option value="ด่วนที่สุด">ด่วนที่สุด</option>
-                </select>
-                <input id="newMemoBudget" type="number" placeholder="งบประมาณ (บาท)" class="px-2 py-1.5 text-xs rounded-lg border border-slate-300" />
-              </div>
-              <div>
-                <label class="block text-[11px] font-medium text-slate-600 mb-1">แนบไฟล์เอกสารประกอบ (PDF / รูปภาพ):</label>
-                <input id="newMemoFile" type="file" class="w-full text-xs text-slate-600" />
-              </div>
-              <textarea id="newMemoContent" rows="2" required placeholder="รายละเอียด/เหตุผลความจำเป็น..." class="w-full px-3 py-2 text-xs rounded-lg border border-slate-300"></textarea>
-              <div class="grid grid-cols-2 gap-2">
-                <button type="button" onclick="createNewMemo(null, false)" class="w-full py-2 rounded-xl bg-slate-800 text-white text-xs font-semibold hover:bg-slate-900">บันทึกเป็นฉบับร่าง (Draft)</button>
-                <button type="submit" class="w-full py-2 rounded-xl bg-indigo-600 text-white text-xs font-semibold hover:bg-indigo-700">ส่งเรื่องให้สารบรรณ (Submit)</button>
-              </div>
-            </form>
+        <div class="space-y-5">
+          <div class="bg-white p-4 rounded-3xl border border-slate-200 shadow-sm flex flex-wrap items-center justify-between gap-3">
+            <div class="flex flex-wrap gap-1.5">
+              ${[
+                { k: "ALL", l: "ทั้งหมด" },
+                { k: "Pending Clerk", l: "รอสารบรรณออกเลข" },
+                { k: "Pending Approval", l: "รอผู้บริหารอนุมัติ" },
+                { k: "Returned for Revision", l: "ส่งกลับแก้ไข" },
+                { k: "Approved", l: "อนุมัติแล้ว" }
+              ].map(f => `
+                <button onclick="setFilter('${f.k}')" class="px-3.5 py-2 rounded-xl text-xs font-bold transition ${state.statusFilter === f.k ? 'bg-indigo-600 text-white' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'}">${f.l}</button>
+              `).join("")}
+            </div>
+            <button onclick="toggleNewMemo(true)" class="px-4 py-2 rounded-xl bg-indigo-600 text-white text-xs font-bold hover:bg-indigo-700 shadow-sm">+ สร้างบันทึกข้อความใหม่</button>
+          </div>
 
-            <div class="bg-white rounded-2xl border border-slate-200 overflow-hidden">
-              <div class="px-4 py-3 bg-slate-50 border-b border-slate-200 text-xs font-bold text-slate-700">รายการบันทึกข้อความทั้งหมด (${state.memos.length})</div>
+          <div class="grid grid-cols-1 lg:grid-cols-12 gap-6">
+            <div class="lg:col-span-5 bg-white rounded-3xl border border-slate-200 shadow-sm overflow-hidden">
+              <div class="px-5 py-3.5 bg-slate-50 border-b border-slate-100 text-xs font-bold text-slate-700">รายการหนังสือบันทึกข้อความ (${filtered.length})</div>
               <div class="divide-y divide-slate-100">
-                ${state.memos.map(m => {
+                ${filtered.map(m => {
                   const mb = getStatusBadge(m.status);
                   return `
-                    <button onclick="selectMemo('${m.id}')" class="w-full text-left p-4 block transition ${m.id === selectedMemo.id ? 'bg-indigo-50 border-l-4 border-l-indigo-600' : 'hover:bg-slate-50'}">
+                    <button onclick="selectMemo('${m.id}')" class="w-full text-left p-4 block transition ${m.id === selectedMemo.id ? 'bg-indigo-50/80 border-l-4 border-l-indigo-600' : 'hover:bg-slate-50'}">
                       <div class="flex items-center justify-between gap-2 mb-1">
-                        <span class="text-xs font-mono font-bold text-indigo-600">${m.documentNumber ? `${m.documentNumber} (${m.id})` : m.id}</span>
-                        <span class="text-[10px] px-2 py-0.5 rounded-full border ${mb.cls}">${mb.label}</span>
+                        <span class="text-xs font-mono font-bold px-2 py-0.5 rounded bg-white border border-slate-200 text-indigo-700">${m.documentNumber || m.id}</span>
+                        <span class="text-[10px] px-2.5 py-0.5 rounded-full border font-bold ${mb.cls}">${mb.label}</span>
                       </div>
-                      <div class="text-sm font-semibold text-slate-900">${m.subject}</div>
+                      <div class="text-sm font-bold text-slate-900">${m.subject}</div>
+                      <div class="text-[11px] text-slate-500 mt-1">${m.category} • ${m.updatedAt}</div>
                     </button>
                   `;
                 }).join("")}
               </div>
             </div>
-          </div>
 
-          <div class="lg:col-span-7 space-y-4">
-            <div class="bg-white rounded-2xl border border-slate-200 p-5 space-y-3">
-              <div class="flex flex-wrap items-center justify-between gap-2">
-                <span class="text-xs font-bold text-slate-700 uppercase">Workflow State Machine (เส้นทางเดินเอกสาร)</span>
-                <div class="flex items-center gap-2">
-                  <span class="text-xs px-2.5 py-0.5 rounded-full border font-semibold ${b.cls}">${b.label}</span>
-                  <button onclick="togglePrint(true)" class="px-3 py-1 rounded-lg bg-slate-900 text-white text-xs font-semibold hover:bg-slate-800">🖨️ พิมพ์หนังสือราชการ / PDF</button>
+            <div class="lg:col-span-7 space-y-4">
+              <div class="bg-white rounded-3xl border border-slate-200 shadow-sm p-5 space-y-4">
+                <div class="flex flex-wrap items-center justify-between gap-2">
+                  <span class="text-xs font-bold text-slate-800">สถานะการเดินเอกสาร (Workflow Progress)</span>
+                  <button onclick="togglePrint(true)" class="px-3.5 py-2 rounded-xl bg-slate-900 text-white text-xs font-bold hover:bg-slate-800 shadow-sm">🖨️ พิมพ์หนังสือราชการ / PDF</button>
+                </div>
+                <div class="grid grid-cols-4 gap-2 text-center text-xs">
+                  <div class="p-3 rounded-2xl border ${selectedMemo.status === 'Draft' || selectedMemo.status === 'Returned for Revision' ? 'bg-indigo-600 text-white font-bold' : 'bg-emerald-50 border-emerald-200 text-emerald-900'}">1. ยื่นเรื่อง<br/><span class="text-[10px] opacity-80">Requester</span></div>
+                  <div class="p-3 rounded-2xl border ${selectedMemo.status === 'Pending Clerk' ? 'bg-indigo-600 text-white font-bold' : selectedMemo.documentNumber ? 'bg-emerald-50 border-emerald-200 text-emerald-900' : 'bg-slate-50 text-slate-400'}">2. ออกเลขหนังสือ<br/><span class="text-[10px] opacity-80">${selectedMemo.documentNumber || 'Clerk'}</span></div>
+                  <div class="p-3 rounded-2xl border ${selectedMemo.status === 'Pending Approval' ? 'bg-indigo-600 text-white font-bold' : selectedMemo.status === 'Approved' ? 'bg-emerald-50 border-emerald-200 text-emerald-900' : 'bg-slate-50 text-slate-400'}">3. พิจารณาลงนาม<br/><span class="text-[10px] opacity-80">Approver</span></div>
+                  <div class="p-3 rounded-2xl border ${selectedMemo.status === 'Approved' ? 'bg-emerald-100 border-emerald-400 text-emerald-900 font-bold' : selectedMemo.status === 'Rejected' ? 'bg-rose-100 border-rose-400 text-rose-900 font-bold' : 'bg-slate-50 text-slate-400'}">4. เสร็จสมบูรณ์<br/><span class="text-[10px] opacity-80">e-Signature</span></div>
                 </div>
               </div>
-              <div class="grid grid-cols-4 gap-2 text-center text-xs">
-                <div class="p-2.5 rounded-xl border ${selectedMemo.status === 'Draft' || selectedMemo.status === 'Returned for Revision' ? 'bg-indigo-50 border-indigo-400 font-bold' : 'bg-emerald-50 border-emerald-200'}">1. ผู้ยื่นเรื่อง<br/><span class="text-[10px]">Requester</span></div>
-                <div class="p-2.5 rounded-xl border ${selectedMemo.status === 'Pending Clerk' ? 'bg-amber-50 border-amber-400 font-bold ring-2 ring-amber-200' : selectedMemo.documentNumber ? 'bg-emerald-50 border-emerald-200' : 'bg-slate-50 text-slate-400'}">2. สารบรรณออกเลข<br/><span class="text-[10px]">${selectedMemo.documentNumber || 'Pending Clerk'}</span></div>
-                <div class="p-2.5 rounded-xl border ${selectedMemo.status === 'Pending Approval' ? 'bg-blue-50 border-blue-400 font-bold ring-2 ring-blue-200' : selectedMemo.status === 'Approved' ? 'bg-emerald-50 border-emerald-200' : 'bg-slate-50 text-slate-400'}">3. หัวหน้าลงนาม<br/><span class="text-[10px]">e-Signature</span></div>
-                <div class="p-2.5 rounded-xl border ${selectedMemo.status === 'Approved' ? 'bg-emerald-100 border-emerald-400 font-bold' : selectedMemo.status === 'Rejected' ? 'bg-rose-100 border-rose-400 font-bold' : 'bg-slate-50 text-slate-400'}">4. เสร็จสิ้น<br/><span class="text-[10px]">${selectedMemo.status === 'Approved' ? 'Approved' : selectedMemo.status === 'Rejected' ? 'Rejected' : 'Final'}</span></div>
-              </div>
-            </div>
 
-            <!-- Action Box -->
-            <div class="bg-white rounded-2xl border-2 border-indigo-200 p-5 space-y-3">
-              <div class="font-bold text-sm text-slate-900">แผงดำเนินการตามสิทธิ์ปัจจุบัน: ${actor.title}</div>
-              ${state.currentRole === "clerk" && selectedMemo.status === "Pending Clerk" ? `
-                <div class="grid grid-cols-1 sm:grid-cols-2 gap-2">
-                  <input id="clerkDocNo" placeholder="เลขทะเบียน (อัตโนมัติ: บค ${String(state.docRunningNumber).padStart(3,'0')}/2569)" class="px-3 py-2 text-xs rounded-lg border border-slate-300" />
-                  <input id="actionComment" placeholder="ความเห็นสารบรรณ / เหตุผลที่ตีกลับ" class="px-3 py-2 text-xs rounded-lg border border-slate-300" />
-                </div>
-                <div class="flex flex-wrap gap-2">
-                  <button onclick="clerkIssueNumber('${selectedMemo.id}')" class="px-4 py-2 rounded-xl bg-amber-600 text-white text-xs font-semibold hover:bg-amber-700">ลงทะเบียนออกเลขหนังสือ & ส่งต่อผู้อนุมัติ</button>
-                  <button onclick="returnMemo('${selectedMemo.id}')" class="px-3.5 py-2 rounded-xl bg-orange-100 text-orange-800 border border-orange-300 text-xs font-semibold">ส่งกลับให้แก้ไข (Return)</button>
-                </div>
-              ` : state.currentRole === "approver" && selectedMemo.status === "Pending Approval" ? `
-                <input id="actionComment" placeholder="ความเห็นผู้บริหาร / คำสั่งการท้ายบันทึกข้อความ..." class="w-full px-3 py-2 text-xs rounded-lg border border-slate-300" />
-                <div class="flex flex-wrap gap-2">
-                  <button onclick="approveMemoAction('${selectedMemo.id}')" class="px-4 py-2 rounded-xl bg-emerald-600 text-white text-xs font-semibold hover:bg-emerald-700">✍️ ลงนามอนุมัติอิเล็กทรอนิกส์ (e-Signature Approve)</button>
-                  <button onclick="returnMemo('${selectedMemo.id}')" class="px-3.5 py-2 rounded-xl bg-orange-100 text-orange-800 border border-orange-300 text-xs font-semibold">ส่งกลับแก้ไข (Return)</button>
-                  <button onclick="rejectMemoAction('${selectedMemo.id}')" class="px-3.5 py-2 rounded-xl bg-rose-100 text-rose-800 border border-rose-300 text-xs font-semibold">ไม่อนุมัติ (Reject)</button>
-                </div>
-              ` : state.currentRole === "requester" && (selectedMemo.status === "Returned for Revision" || selectedMemo.status === "Draft") ? `
-                <button onclick="resubmitMemoAction('${selectedMemo.id}')" class="px-4 py-2 rounded-xl bg-blue-600 text-white text-xs font-semibold hover:bg-blue-700">ยืนยันการแก้ไข & ส่งเรื่องให้สารบรรณตรวจสอบอีกครั้ง</button>
-              ` : `
-                <div class="text-xs text-slate-600 bg-slate-50 p-3 rounded-xl border border-slate-200 flex items-center justify-between">
-                  <span>เอกสารนี้อยู่ที่สถานะ <strong>${b.label}</strong></span>
-                  ${selectedMemo.status === "Pending Clerk" ? `<button onclick="switchRole('clerk')" class="px-3 py-1.5 rounded-lg bg-amber-600 text-white font-semibold">สลับเป็น สารบรรณ (Clerk) ทันที</button>` : ""}
-                  ${selectedMemo.status === "Pending Approval" ? `<button onclick="switchRole('approver')" class="px-3 py-1.5 rounded-lg bg-emerald-600 text-white font-semibold">สลับเป็น ผู้อนุมัติ (Approver) ทันที</button>` : ""}
-                  ${selectedMemo.status === "Returned for Revision" ? `<button onclick="switchRole('requester')" class="px-3 py-1.5 rounded-lg bg-blue-600 text-white font-semibold">สลับเป็น ผู้ยื่นเรื่อง (Requester) ทันที</button>` : ""}
-                </div>
-              `}
-            </div>
-
-            <!-- Document Content & e-Signature -->
-            <div class="bg-white rounded-2xl border border-slate-200 p-6 space-y-4">
-              <div class="flex justify-between items-start border-b border-slate-200 pb-3">
-                <div>
-                  <span class="text-xs text-slate-400 font-bold">บันทึกข้อความ (OFFICIAL MEMO) • ${selectedMemo.category}</span>
-                  <h3 class="text-lg font-bold text-slate-900">${selectedMemo.subject}</h3>
-                </div>
-                <div class="text-right text-xs bg-slate-50 px-3 py-2 rounded-xl border border-slate-200">
-                  <div><strong>เลขทะเบียน:</strong> <span class="font-mono font-bold text-indigo-700">${selectedMemo.documentNumber || "รอสารบรรณออกเลข"}</span></div>
-                  <div><strong>รหัสอ้างอิง:</strong> ${selectedMemo.id}</div>
-                </div>
-              </div>
-              <div class="text-sm text-slate-800 bg-slate-50 p-4 rounded-xl border border-slate-200">${selectedMemo.content}</div>
-              ${selectedMemo.attachmentName ? `<div class="text-xs bg-slate-50 p-3 rounded-xl border border-slate-200 flex justify-between"><span>📎 ไฟล์แนบ: <strong>${selectedMemo.attachmentName}</strong></span><span class="text-emerald-700 font-semibold">✓ ตรวจสอบไฟล์แนบแล้ว</span></div>` : ""}
-
-              ${selectedMemo.status === "Approved" ? `
-                <div class="p-4 rounded-2xl bg-emerald-50 border-2 border-emerald-300 flex items-center justify-between">
-                  <div class="text-xs space-y-1">
-                    <div class="font-bold text-emerald-900">✓ ลงนามอนุมัติด้วยลายมือชื่ออิเล็กทรอนิกส์ (Verified Digital e-Signature)</div>
-                    <div>คำสั่งการ: “${selectedMemo.approverCommand || 'อนุมัติให้ดำเนินการตามเสนอ'}”</div>
-                    <div class="text-slate-500">ผู้ลงนาม: ${selectedMemo.signedBy || ACTORS.approver.name} (${ACTORS.approver.title})</div>
+              <!-- Action Box -->
+              <div class="bg-white rounded-3xl border-2 border-indigo-200 shadow-sm p-5 space-y-3">
+                <div class="font-bold text-sm text-slate-900">การดำเนินการในขั้นตอนนี้ (${actor.title})</div>
+                ${state.currentRole === "clerk" && selectedMemo.status === "Pending Clerk" ? `
+                  <div class="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                    <input id="clerkDocNo" placeholder="เลขทะเบียน (อัตโนมัติ: บค ${String(state.docRunningNumber).padStart(3,'0')}/2569)" class="px-3.5 py-2 text-xs rounded-xl border border-slate-300" />
+                    <input id="actionComment" placeholder="ความเห็นสารบรรณ / เหตุผลที่ตีกลับ" class="px-3.5 py-2 text-xs rounded-xl border border-slate-300" />
                   </div>
-                  <div class="px-3 py-1.5 rounded-xl border-2 border-emerald-600 text-emerald-700 font-bold text-xs bg-white">APPROVED • อนุมัติแล้ว</div>
-                </div>
-              ` : ""}
+                  <div class="flex flex-wrap gap-2">
+                    <button onclick="clerkIssueNumber('${selectedMemo.id}')" class="px-4 py-2.5 rounded-2xl bg-amber-600 text-white text-xs font-bold hover:bg-amber-700 shadow-sm">ออกเลขทะเบียนหนังสือ & ส่งต่อผู้อำนวยการ</button>
+                    <button onclick="returnMemo('${selectedMemo.id}')" class="px-4 py-2.5 rounded-2xl bg-orange-100 text-orange-800 border border-orange-300 text-xs font-bold">ส่งกลับให้แก้ไข (Return)</button>
+                  </div>
+                ` : state.currentRole === "approver" && selectedMemo.status === "Pending Approval" ? `
+                  <input id="actionComment" placeholder="คำสั่งการผู้บริหารท้ายบันทึกข้อความ..." class="w-full px-3.5 py-2 text-xs rounded-xl border border-slate-300" />
+                  <div class="flex flex-wrap gap-2">
+                    <button onclick="approveMemoAction('${selectedMemo.id}')" class="px-5 py-2.5 rounded-2xl bg-emerald-600 text-white text-xs font-bold hover:bg-emerald-700 shadow-sm">✍️ ลงนามอนุมัติ (e-Signature Approve)</button>
+                    <button onclick="returnMemo('${selectedMemo.id}')" class="px-3.5 py-2.5 rounded-2xl bg-orange-100 text-orange-800 border border-orange-300 text-xs font-bold">ส่งกลับแก้ไข</button>
+                    <button onclick="rejectMemoAction('${selectedMemo.id}')" class="px-3.5 py-2.5 rounded-2xl bg-rose-100 text-rose-800 border border-rose-300 text-xs font-bold">ไม่อนุมัติ (Reject)</button>
+                  </div>
+                ` : state.currentRole === "requester" && (selectedMemo.status === "Returned for Revision" || selectedMemo.status === "Draft") ? `
+                  <button onclick="resubmitMemoAction('${selectedMemo.id}')" class="px-5 py-2.5 rounded-2xl bg-blue-600 text-white text-xs font-bold hover:bg-blue-700 shadow-sm">ส่งเรื่องให้สารบรรณตรวจสอบทันที</button>
+                ` : `
+                  <div class="text-xs text-indigo-950 bg-indigo-50 p-3.5 rounded-2xl border border-indigo-200 flex flex-wrap items-center justify-between gap-2">
+                    <span>เอกสารนี้อยู่ระหว่างรอ <strong>${b.label}</strong></span>
+                    ${selectedMemo.status === "Pending Clerk" ? `<button onclick="switchRole('clerk')" class="px-3.5 py-2 rounded-xl bg-amber-600 text-white font-bold">สลับเป็น 2. สารบรรณ (Clerk) ➔</button>` : ""}
+                    ${selectedMemo.status === "Pending Approval" ? `<button onclick="switchRole('approver')" class="px-3.5 py-2 rounded-xl bg-emerald-600 text-white font-bold">สลับเป็น 3. ผู้อำนวยการ (Approver) ➔</button>` : ""}
+                    ${selectedMemo.status === "Returned for Revision" || selectedMemo.status === "Draft" ? `<button onclick="switchRole('requester')" class="px-3.5 py-2 rounded-xl bg-blue-600 text-white font-bold">สลับเป็น 1. พนักงานผู้ยื่น (Requester) ➔</button>` : ""}
+                  </div>
+                `}
+              </div>
 
-              <div>
-                <h4 class="text-xs font-bold text-slate-700 uppercase mb-2">ประวัติการเดินเอกสาร (Audit Trail)</h4>
-                <div class="space-y-2">
-                  ${selectedMemo.auditTrail.map((a, idx) => `
-                    <div class="p-3 rounded-xl bg-slate-50 border border-slate-200 text-xs">
-                      <div class="flex justify-between font-bold text-slate-900">
-                        <span>#${idx+1} ${a.actorName} (${a.actorRole})</span>
-                        <span class="text-slate-500 font-normal">${a.timestamp}</span>
-                      </div>
-                      <div class="text-slate-700 mt-0.5">${a.action}</div>
-                      ${a.comment ? `<div class="text-slate-600 italic mt-1">“${a.comment}”</div>` : ""}
+              <!-- Document Content -->
+              <div class="bg-white rounded-3xl border border-slate-200 shadow-sm p-6 space-y-4">
+                <div class="flex justify-between items-start border-b border-slate-200 pb-4">
+                  <div>
+                    <span class="text-xs text-indigo-600 font-bold">บันทึกข้อความ (OFFICIAL MEMORANDUM) • ${selectedMemo.category}</span>
+                    <h3 class="text-lg font-bold text-slate-900 mt-1">${selectedMemo.subject}</h3>
+                  </div>
+                  <div class="text-right text-xs bg-slate-50 px-3.5 py-2.5 rounded-2xl border border-slate-200">
+                    <div><strong>เลขทะเบียน:</strong> <span class="font-mono font-bold text-indigo-700">${selectedMemo.documentNumber || "รอสารบรรณออกเลข"}</span></div>
+                    <div><strong>รหัสอ้างอิง:</strong> ${selectedMemo.id}</div>
+                  </div>
+                </div>
+                <div class="text-sm text-slate-800 leading-relaxed bg-slate-50 p-5 rounded-2xl border border-slate-200">${selectedMemo.content}</div>
+                ${selectedMemo.attachmentName ? `<div class="text-xs bg-slate-50 p-3.5 rounded-2xl border border-slate-200 flex justify-between"><span>📎 ไฟล์แนบ: <strong>${selectedMemo.attachmentName}</strong></span><span class="text-emerald-700 font-bold">✓ ตรวจสอบไฟล์แนบแล้ว</span></div>` : ""}
+
+                ${selectedMemo.status === "Approved" ? `
+                  <div class="p-4 rounded-2xl bg-emerald-50 border-2 border-emerald-300 flex items-center justify-between">
+                    <div class="text-xs space-y-1">
+                      <div class="font-bold text-emerald-900">✓ ลงนามอนุมัติด้วยลายมือชื่ออิเล็กทรอนิกส์ (Verified Digital e-Signature)</div>
+                      <div>คำสั่งการ: “${selectedMemo.approverCommand || 'อนุมัติให้ดำเนินการตามเสนอ'}”</div>
+                      <div class="text-slate-500">ผู้ลงนาม: ${selectedMemo.signedBy || ACTORS.approver.name}</div>
                     </div>
-                  `).join("")}
+                    <div class="px-3.5 py-2 rounded-xl border-2 border-emerald-600 text-emerald-700 font-bold text-xs bg-white">APPROVED • อนุมัติแล้ว</div>
+                  </div>
+                ` : ""}
+
+                <div class="pt-3 border-t border-slate-200">
+                  <h4 class="text-xs font-bold text-slate-700 uppercase mb-2.5">ประวัติการเดินเอกสาร (Audit Trail)</h4>
+                  <div class="space-y-2">
+                    ${selectedMemo.auditTrail.map((a, idx) => `
+                      <div class="p-3 rounded-2xl bg-slate-50 border border-slate-200 text-xs">
+                        <div class="flex justify-between font-bold text-slate-900">
+                          <span>#${idx+1} ${a.actorName} (${a.actorRole})</span>
+                          <span class="text-slate-500 font-normal">${a.timestamp}</span>
+                        </div>
+                        <div class="text-slate-700 mt-0.5">${a.action}</div>
+                        ${a.comment ? `<div class="text-slate-600 italic mt-1">“${a.comment}”</div>` : ""}
+                      </div>
+                    `).join("")}
+                  </div>
                 </div>
               </div>
             </div>
@@ -885,10 +987,10 @@
             ${Object.keys(state.leaveBalance).map(k => {
               const q = state.leaveBalance[k];
               return `
-                <div class="bg-white rounded-2xl border border-slate-200 p-5">
+                <div class="bg-white rounded-3xl border border-slate-200 p-5 shadow-sm">
                   <div class="flex justify-between text-xs font-bold text-slate-700">
                     <span>${q.label}</span>
-                    <span class="text-indigo-600">คงเหลือ ${q.total - q.used} วัน</span>
+                    <span class="px-2.5 py-0.5 rounded-full bg-indigo-50 text-indigo-700">คงเหลือ ${q.total - q.used} วัน</span>
                   </div>
                   <div class="text-2xl font-bold text-slate-900 mt-2">ใช้ไป ${q.used} / ${q.total} วัน</div>
                 </div>
@@ -897,44 +999,44 @@
           </div>
 
           <div class="grid grid-cols-1 lg:grid-cols-12 gap-6">
-            <form onsubmit="createNewLeave(event)" class="lg:col-span-5 bg-white rounded-2xl border border-slate-200 p-5 space-y-3">
-              <h4 class="font-bold text-sm text-slate-900">ยื่นใบลาออนไลน์ใหม่ (Direct Flow: Requester → Approver)</h4>
-              <select id="newLeaveType" class="w-full px-3 py-2 text-xs rounded-lg border border-slate-300">
+            <form onsubmit="createNewLeave(event)" class="lg:col-span-5 bg-white rounded-3xl border border-slate-200 p-6 shadow-sm space-y-3.5">
+              <h4 class="font-bold text-sm text-slate-900">ยื่นใบลาออนไลน์ใหม่ (Direct Approval Flow)</h4>
+              <select id="newLeaveType" class="w-full px-3 py-2.5 text-xs rounded-xl border border-slate-300 bg-white">
                 <option value="vacation">ลาพักผ่อนประจำปี (Vacation Leave)</option>
                 <option value="sick">ลาป่วย (Sick Leave)</option>
                 <option value="personal">ลากิจธุระจำเป็น (Personal Leave)</option>
               </select>
               <div class="grid grid-cols-3 gap-2">
-                <input id="newLeaveStart" type="date" value="2026-12-01" class="px-2 py-2 text-xs rounded-lg border border-slate-300" />
-                <input id="newLeaveEnd" type="date" value="2026-12-02" class="px-2 py-2 text-xs rounded-lg border border-slate-300" />
-                <input id="newLeaveDays" type="number" value="2" min="1" class="px-2 py-2 text-xs rounded-lg border border-slate-300" />
+                <input id="newLeaveStart" type="date" value="2026-12-01" class="px-2 py-2 text-xs rounded-xl border border-slate-300" />
+                <input id="newLeaveEnd" type="date" value="2026-12-02" class="px-2 py-2 text-xs rounded-xl border border-slate-300" />
+                <input id="newLeaveDays" type="number" value="2" min="1" class="px-2 py-2 text-xs rounded-xl border border-slate-300" />
               </div>
-              <textarea id="newLeaveReason" rows="2" required placeholder="ระบุเหตุผลการลา..." class="w-full px-3 py-2 text-xs rounded-lg border border-slate-300"></textarea>
-              <button type="submit" class="w-full py-2.5 rounded-xl bg-indigo-600 text-white text-xs font-semibold">ส่งใบลาให้หัวหน้าอนุมัติ</button>
+              <textarea id="newLeaveReason" rows="3" required placeholder="ระบุเหตุผลการลาและผู้รับผิดชอบงานแทน..." class="w-full px-3 py-2 text-xs rounded-xl border border-slate-300"></textarea>
+              <button type="submit" class="w-full py-3 rounded-2xl bg-indigo-600 text-white text-xs font-bold hover:bg-indigo-700">ส่งใบลาให้หัวหน้าพิจารณาอนุมัติ</button>
             </form>
 
-            <div class="lg:col-span-7 bg-white rounded-2xl border border-slate-200 p-5 space-y-3">
+            <div class="lg:col-span-7 bg-white rounded-3xl border border-slate-200 p-6 shadow-sm space-y-4">
               <div class="flex justify-between items-center">
                 <h4 class="font-bold text-sm text-slate-900">รายการใบลาทั้งหมด (${state.leaves.length})</h4>
-                ${state.currentRole !== "approver" ? `<button onclick="switchRole('approver')" class="px-3 py-1 rounded-lg bg-emerald-600 text-white text-xs font-semibold">สลับเป็น ผู้อนุมัติ (Approver) เพื่อกดอนุมัติใบลา</button>` : ""}
+                ${state.currentRole !== "approver" ? `<button onclick="switchRole('approver')" class="px-3.5 py-1.5 rounded-xl bg-emerald-600 text-white text-xs font-bold">สลับเป็น 3. ผู้อำนวยการ (Approver) เพื่อกดอนุมัติใบลา ➔</button>` : ""}
               </div>
               <div class="divide-y divide-slate-100">
                 ${state.leaves.map(l => {
                   const b = getStatusBadge(l.status);
                   return `
-                    <div class="py-3.5 flex flex-wrap items-center justify-between gap-3">
+                    <div class="py-4 flex flex-wrap items-center justify-between gap-3">
                       <div class="space-y-1 text-xs">
                         <div class="flex items-center gap-2">
-                          <span class="font-mono font-bold text-indigo-600">${l.id}</span>
+                          <span class="font-mono font-bold text-indigo-700">${l.id}</span>
                           <span class="font-bold text-slate-900">${state.leaveBalance[l.leaveType].label} (${l.days} วัน)</span>
-                          <span class="px-2 py-0.5 rounded-full border ${b.cls}">${b.label}</span>
+                          <span class="px-2.5 py-0.5 rounded-full border font-bold ${b.cls}">${b.label}</span>
                         </div>
-                        <div class="text-slate-600">ช่วงวันที่: ${l.startDate} ถึง ${l.endDate} • เหตุผล: ${l.reason}</div>
+                        <div class="text-slate-600">วันที่ลา: ${l.startDate} ถึง ${l.endDate} • เหตุผล: ${l.reason}</div>
                       </div>
                       ${l.status === "Pending Approval" && state.currentRole === "approver" ? `
                         <div class="flex gap-2">
-                          <button onclick="approveLeave('${l.id}')" class="px-3.5 py-2 rounded-xl bg-emerald-600 text-white text-xs font-semibold">อนุมัติ & หักวันลา (${l.days} วัน)</button>
-                          <button onclick="rejectLeave('${l.id}')" class="px-3 py-2 rounded-xl bg-rose-100 text-rose-800 border border-rose-300 text-xs font-semibold">ไม่อนุมัติ</button>
+                          <button onclick="approveLeave('${l.id}')" class="px-4 py-2 rounded-xl bg-emerald-600 text-white text-xs font-bold">อนุมัติ & หักวันลา (${l.days} วัน)</button>
+                          <button onclick="rejectLeave('${l.id}')" class="px-3 py-2 rounded-xl bg-rose-100 text-rose-800 border border-rose-300 text-xs font-bold">ไม่อนุมัติ</button>
                         </div>
                       ` : ""}
                     </div>
@@ -950,29 +1052,29 @@
     function renderBookings() {
       return `
         <div class="grid grid-cols-1 lg:grid-cols-12 gap-6">
-          <form onsubmit="createNewBooking(event)" class="lg:col-span-5 bg-white rounded-2xl border border-slate-200 p-5 space-y-3">
+          <form onsubmit="createNewBooking(event)" class="lg:col-span-5 bg-white rounded-3xl border border-slate-200 p-6 shadow-sm space-y-3.5">
             <h4 class="font-bold text-sm text-slate-900">จองห้องประชุมออนไลน์ (e-Booking)</h4>
-            <select id="bookRoom" class="w-full px-3 py-2 text-xs rounded-lg border border-slate-300">
+            <select id="bookRoom" class="w-full px-3 py-2.5 text-xs rounded-xl border border-slate-300 bg-white">
               ${MEETING_ROOMS.map((r, i) => `<option value="${i}">${r.name} (ความจุ ${r.capacity} คน)</option>`).join("")}
             </select>
-            <input id="bookTitle" required placeholder="หัวข้อการประชุม..." class="w-full px-3 py-2 text-xs rounded-lg border border-slate-300" />
+            <input id="bookTitle" required placeholder="หัวข้อการประชุม..." class="w-full px-3.5 py-2.5 text-xs rounded-xl border border-slate-300" />
             <div class="grid grid-cols-3 gap-2">
-              <input id="bookDate" type="date" value="2026-11-25" class="px-2 py-2 text-xs rounded-lg border border-slate-300" />
-              <input id="bookStart" type="time" value="10:00" class="px-2 py-2 text-xs rounded-lg border border-slate-300" />
-              <input id="bookEnd" type="time" value="12:00" class="px-2 py-2 text-xs rounded-lg border border-slate-300" />
+              <input id="bookDate" type="date" value="2026-11-25" class="px-2 py-2 text-xs rounded-xl border border-slate-300" />
+              <input id="bookStart" type="time" value="10:00" class="px-2 py-2 text-xs rounded-xl border border-slate-300" />
+              <input id="bookEnd" type="time" value="12:00" class="px-2 py-2 text-xs rounded-xl border border-slate-300" />
             </div>
-            <input id="bookAttendees" type="number" value="15" placeholder="จำนวนผู้เข้าร่วม" class="w-full px-3 py-2 text-xs rounded-lg border border-slate-300" />
-            <button type="submit" class="w-full py-2.5 rounded-xl bg-indigo-600 text-white text-xs font-semibold">ยืนยันการจองห้องประชุม</button>
+            <input id="bookAttendees" type="number" value="15" placeholder="จำนวนผู้เข้าร่วม" class="w-full px-3.5 py-2 text-xs rounded-xl border border-slate-300" />
+            <button type="submit" class="w-full py-3 rounded-2xl bg-indigo-600 text-white text-xs font-bold">ยืนยันการจองห้องประชุม</button>
           </form>
 
-          <div class="lg:col-span-7 bg-white rounded-2xl border border-slate-200 p-5 space-y-3">
+          <div class="lg:col-span-7 bg-white rounded-3xl border border-slate-200 p-6 shadow-sm space-y-3">
             <h4 class="font-bold text-sm text-slate-900">ตารางการจองห้องประชุมทั้งหมด (${state.bookings.length})</h4>
             <div class="divide-y divide-slate-100">
               ${state.bookings.map(b => `
-                <div class="py-3.5 space-y-1 text-xs">
+                <div class="py-4 space-y-1 text-xs">
                   <div class="flex items-center gap-2">
-                    <span class="font-mono font-bold text-indigo-600">${b.id}</span>
-                    <span class="px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200 font-semibold">Confirmed</span>
+                    <span class="font-mono font-bold text-indigo-700">${b.id}</span>
+                    <span class="px-2.5 py-0.5 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200 font-bold">ยืนยันแล้ว</span>
                     <span class="text-slate-500">วันที่ ${b.date} (${b.startTime} - ${b.endTime} น.)</span>
                   </div>
                   <div class="text-sm font-bold text-slate-900">${b.title}</div>
@@ -988,16 +1090,16 @@
     function renderAnnouncements() {
       return `
         <div class="space-y-6">
-          <div class="bg-white rounded-2xl border border-slate-200 p-5 space-y-3">
+          <div class="bg-white rounded-3xl border border-slate-200 p-6 shadow-sm space-y-4">
             <h4 class="font-bold text-sm text-slate-900">ทำเนียบบุคลากรและสายบังคับบัญชา (Approval Hierarchy)</h4>
             <div class="grid grid-cols-1 md:grid-cols-3 gap-4 text-xs">
               ${["requester", "clerk", "approver"].map((r, i) => {
                 const a = ACTORS[r];
                 return `
-                  <div class="p-4 rounded-xl bg-slate-50 border border-slate-200 space-y-1">
-                    <span class="px-2 py-0.5 rounded-full text-white font-semibold ${a.badgeColor}">ลำดับ Flow ที่ ${i+1}</span>
+                  <div class="p-5 rounded-2xl bg-slate-50 border border-slate-200 space-y-1.5">
+                    <span class="px-3 py-0.5 rounded-full text-white font-bold ${a.badgeColor}">ลำดับ Flow ที่ ${i+1}</span>
                     <div class="text-base font-bold text-slate-900 pt-1">${a.name}</div>
-                    <div class="text-indigo-700 font-semibold">${a.title}</div>
+                    <div class="text-indigo-700 font-bold">${a.title}</div>
                     <div class="text-slate-500">${a.department} • ${a.email}</div>
                   </div>
                 `;
@@ -1006,25 +1108,25 @@
           </div>
 
           <div class="grid grid-cols-1 lg:grid-cols-12 gap-6">
-            <form onsubmit="createNewAnn(event)" class="lg:col-span-5 bg-white rounded-2xl border border-slate-200 p-5 space-y-3">
+            <form onsubmit="createNewAnn(event)" class="lg:col-span-5 bg-white rounded-3xl border border-slate-200 p-6 shadow-sm space-y-3.5">
               <h4 class="font-bold text-sm text-slate-900">สร้างประกาศองค์กรใหม่</h4>
-              <input id="annTitle" required placeholder="หัวข้อประกาศ..." class="w-full px-3 py-2 text-xs rounded-lg border border-slate-300" />
-              <select id="annCat" class="w-full px-3 py-2 text-xs rounded-lg border border-slate-300">
+              <input id="annTitle" required placeholder="หัวข้อประกาศ..." class="w-full px-3.5 py-2.5 text-xs rounded-xl border border-slate-300" />
+              <select id="annCat" class="w-full px-3 py-2.5 text-xs rounded-xl border border-slate-300 bg-white">
                 <option value="ประกาศสำคัญ">ประกาศสำคัญ</option>
                 <option value="นโยบายไอที">นโยบายไอที</option>
                 <option value="กิจกรรมองค์กร">กิจกรรมองค์กร</option>
               </select>
-              <textarea id="annContent" rows="3" required placeholder="รายละเอียดประกาศ..." class="w-full px-3 py-2 text-xs rounded-lg border border-slate-300"></textarea>
-              <button type="submit" class="w-full py-2.5 rounded-xl bg-indigo-600 text-white text-xs font-semibold">เผยแพร่ประกาศ</button>
+              <textarea id="annContent" rows="3" required placeholder="รายละเอียดประกาศ..." class="w-full px-3.5 py-2.5 text-xs rounded-xl border border-slate-300"></textarea>
+              <button type="submit" class="w-full py-3 rounded-2xl bg-indigo-600 text-white text-xs font-bold">เผยแพร่ประกาศองค์กร</button>
             </form>
 
-            <div class="lg:col-span-7 bg-white rounded-2xl border border-slate-200 p-5 space-y-3">
+            <div class="lg:col-span-7 bg-white rounded-3xl border border-slate-200 p-6 shadow-sm space-y-3">
               <h4 class="font-bold text-sm text-slate-900">รายการประกาศทั้งหมด (${state.announcements.length})</h4>
               <div class="space-y-3">
                 ${state.announcements.map(a => `
-                  <div class="p-4 rounded-xl bg-slate-50 border border-slate-200 text-xs space-y-1">
+                  <div class="p-4 rounded-2xl bg-slate-50 border border-slate-200 text-xs space-y-1">
                     <div class="flex justify-between">
-                      <span class="px-2 py-0.5 rounded bg-indigo-100 text-indigo-800 font-bold">${a.category}</span>
+                      <span class="px-2.5 py-0.5 rounded-full bg-indigo-100 text-indigo-800 font-bold">${a.category}</span>
                       <span class="text-slate-500">โดย ${a.authorName} • ${a.postedAt}</span>
                     </div>
                     <div class="text-sm font-bold text-slate-900">${a.title}</div>
@@ -1040,26 +1142,85 @@
 
     function renderArchitecture() {
       return `
-        <div class="bg-white rounded-2xl border border-slate-200 p-6 space-y-6">
-          <div>
-            <h2 class="text-lg font-bold text-slate-900">สไลด์สรุปสถาปัตยกรรม Flow & Stack ของระบบ E-Office (สำหรับนำเสนออาจารย์)</h2>
-            <p class="text-xs text-slate-500">เปิดหน้านี้ขึ้นจอโปรเจกเตอร์เพื่ออธิบายอาจารย์ได้เลย ครอบคลุมทั้ง Business Workflow State Machine และ Full-Stack Architecture</p>
+        <div class="space-y-6">
+          <div class="bg-gradient-to-br from-slate-900 via-indigo-950 to-slate-900 rounded-3xl p-7 text-white shadow-lg space-y-2">
+            <span class="px-3 py-1 rounded-full bg-indigo-500/20 text-indigo-300 border border-indigo-400/30 text-xs font-semibold">สไลด์สรุปสำหรับเปิดนำเสนออาจารย์</span>
+            <h2 class="text-2xl font-bold">สถาปัตยกรรมระบบ E-Office: การออกแบบ FLOW & STACK</h2>
+            <p class="text-sm text-slate-300">เปิดหน้านี้ประกอบการอธิบายอาจารย์ได้เลย สรุปครบทั้ง Workflow State Machine และ Full-Stack Architecture</p>
           </div>
-          <div class="grid grid-cols-1 md:grid-cols-2 gap-4 text-xs">
-            <div class="p-4 rounded-xl bg-slate-50 border border-slate-200 space-y-2">
-              <div class="font-bold text-indigo-700 text-sm">1. FLOW: ระบบสารบรรณ & อนุมัติเอกสาร (State Machine)</div>
-              <div>• <strong>Requester (พนักงาน):</strong> สร้างบันทึกข้อความ แนบไฟล์ → ส่งเข้าสารบรรณ (<code>Pending Clerk</code>)</div>
-              <div>• <strong>Clerk (เจ้าหน้าที่สารบรรณ):</strong> ตรวจสอบรูปแบบ ออกเลขทะเบียนหนังสือ (<code>บค xxx/2569</code>) → ส่งต่อผู้บริหาร (<code>Pending Approval</code>) หรือตีกลับให้แก้ไข (<code>Returned for Revision</code>)</div>
-              <div>• <strong>Approver (ผู้อำนวยการฝ่าย):</strong> ลงนามอนุมัติด้วยลายมือชื่ออิเล็กทรอนิกส์ (<code>e-Signature Approved</code>) พร้อมออกรายงานหนังสือราชการ PDF</div>
-              <div>• <strong>e-Leave Flow:</strong> วิ่งตรง <code>Requester → Approver</code> และหักโควตาวันลาอัตโนมัติ</div>
+
+          <div class="bg-white rounded-3xl border border-slate-200 p-6 shadow-sm space-y-4">
+            <h3 class="text-base font-bold text-slate-900">1. การออกแบบ FLOW (Workflow Routing & State Machine)</h3>
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-4 text-xs">
+              <div class="p-4 rounded-2xl bg-blue-50/60 border border-blue-200 space-y-1.5">
+                <span class="px-2.5 py-0.5 rounded-full bg-blue-600 text-white font-bold">บทบาทที่ 1: Requester</span>
+                <div class="font-bold text-sm text-slate-900 pt-1">พนักงานผู้ยื่นเรื่อง</div>
+                <div class="text-slate-600">สร้างร่างบันทึกข้อความ (Draft) แนบไฟล์ PDF และกดส่งเข้าห้องสารบรรณ (Pending Clerk)</div>
+              </div>
+              <div class="p-4 rounded-2xl bg-amber-50/60 border border-amber-200 space-y-1.5">
+                <span class="px-2.5 py-0.5 rounded-full bg-amber-600 text-white font-bold">บทบาทที่ 2: Clerk</span>
+                <div class="font-bold text-sm text-slate-900 pt-1">เจ้าหน้าที่สารบรรณกลาง</div>
+                <div class="text-slate-600">ตรวจความถูกต้อง ออกเลขทะเบียนหนังสือราชการ (บค xxx/2569) หรือส่งกลับให้แก้ไข</div>
+              </div>
+              <div class="p-4 rounded-2xl bg-emerald-50/60 border border-emerald-200 space-y-1.5">
+                <span class="px-2.5 py-0.5 rounded-full bg-emerald-600 text-white font-bold">บทบาทที่ 3: Approver</span>
+                <div class="font-bold text-sm text-slate-900 pt-1">ผู้อำนวยการฝ่าย (ผู้อนุมัติ)</div>
+                <div class="text-slate-600">ลงนามอนุมัติด้วยลายมือชื่ออิเล็กทรอนิกส์ (e-Signature) พร้อมออกเอกสาร PDF</div>
+              </div>
             </div>
-            <div class="p-4 rounded-xl bg-slate-50 border border-slate-200 space-y-2">
-              <div class="font-bold text-emerald-700 text-sm">2. STACK: สถาปัตยกรรมเทคโนโลยี (Full-Stack Architecture)</div>
-              <div>• <strong>Frontend Layer:</strong> Next.js 15 (App Router) + React 19 + TypeScript + Tailwind CSS</div>
-              <div>• <strong>Backend API Layer:</strong> Next.js REST Route Handler (<code>GET / POST /api/eoffice</code>)</div>
-              <div>• <strong>Database Layer:</strong> Server-Side Persistent JSON DB (<code>data/eoffice-db.json</code>) + LocalStorage Fallback</div>
-              <div>• <strong>Security & RBAC:</strong> ระบบ Login ตามสิทธิ์ 3 บทบาท + Instant Role Switcher สำหรับสาธิต</div>
+          </div>
+
+          <div class="bg-white rounded-3xl border border-slate-200 p-6 shadow-sm space-y-4">
+            <h3 class="text-base font-bold text-slate-900">2. การออกแบบ STACK (Full-Stack Architecture)</h3>
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-4 text-xs">
+              <div class="p-4 rounded-2xl bg-slate-50 border border-slate-200 space-y-1.5">
+                <div class="font-bold text-indigo-700 text-sm">Frontend & UI Layer</div>
+                <div>Next.js 15 (App Router) + React 19 + TypeScript + Tailwind CSS + Lucide Icons</div>
+              </div>
+              <div class="p-4 rounded-2xl bg-slate-50 border border-slate-200 space-y-1.5">
+                <div class="font-bold text-emerald-700 text-sm">Backend API & Persistence Layer</div>
+                <div>Next.js REST API Route (<code>GET / POST /api/eoffice</code>) + Persistent Server JSON DB (<code>data/eoffice-db.json</code>)</div>
+              </div>
             </div>
+          </div>
+        </div>
+      `;
+    }
+
+    function renderNewMemoModal() {
+      return `
+        <div class="fixed inset-0 z-50 bg-slate-900/65 flex items-center justify-center p-4">
+          <div class="bg-white rounded-3xl max-w-xl w-full border border-slate-200 shadow-2xl overflow-hidden">
+            <div class="px-6 py-4 border-b border-slate-200 flex items-center justify-between bg-indigo-50/60">
+              <h3 class="font-bold text-slate-900 text-base">+ สร้างบันทึกข้อความใหม่ (New Official Memo)</h3>
+              <button onclick="toggleNewMemo(false)" class="text-slate-500 font-bold">✕</button>
+            </div>
+            <form onsubmit="createNewMemo(event, true)" class="p-6 space-y-4">
+              <input id="newMemoSubject" required placeholder="หัวข้อเรื่องบันทึกข้อความ..." class="w-full px-3.5 py-2.5 text-sm rounded-xl border border-slate-300" />
+              <div class="grid grid-cols-3 gap-2">
+                <select id="newMemoCategory" class="px-3 py-2 text-xs rounded-xl border border-slate-300 bg-white">
+                  <option value="ขออนุมัติโครงการ">ขออนุมัติโครงการ</option>
+                  <option value="จัดซื้อจัดจ้าง">จัดซื้อจัดจ้าง</option>
+                  <option value="ขอเบิกงบประมาณ">ขอเบิกงบประมาณ</option>
+                </select>
+                <select id="newMemoUrgency" class="px-3 py-2 text-xs rounded-xl border border-slate-300 bg-white">
+                  <option value="ปกติ">ชั้นความเร็ว: ปกติ</option>
+                  <option value="ด่วน">ด่วน</option>
+                  <option value="ด่วนที่สุด">ด่วนที่สุด</option>
+                </select>
+                <input id="newMemoBudget" type="number" placeholder="งบประมาณ (บาท)" class="px-3 py-2 text-xs rounded-xl border border-slate-300" />
+              </div>
+              <div>
+                <label class="block text-xs font-bold text-slate-700 mb-1">แนบไฟล์เอกสารประกอบ (PDF / รูปภาพ):</label>
+                <input id="newMemoFile" type="file" class="w-full text-xs text-slate-600" />
+              </div>
+              <textarea id="newMemoContent" rows="3" required placeholder="ระบุเหตุผลความจำเป็นและข้อเสนอเพื่อพิจารณา..." class="w-full px-3.5 py-2.5 text-sm rounded-xl border border-slate-300"></textarea>
+              <div class="flex justify-end gap-2 pt-2">
+                <button type="button" onclick="toggleNewMemo(false)" class="px-4 py-2.5 rounded-xl bg-slate-100 text-slate-700 text-xs font-bold">ยกเลิก</button>
+                <button type="button" onclick="createNewMemo(null, false)" class="px-4 py-2.5 rounded-xl bg-slate-800 text-white text-xs font-bold">บันทึกฉบับร่าง (Draft)</button>
+                <button type="submit" class="px-5 py-2.5 rounded-xl bg-indigo-600 text-white text-xs font-bold shadow">ส่งให้สารบรรณทันที</button>
+              </div>
+            </form>
           </div>
         </div>
       `;
@@ -1068,12 +1229,12 @@
     function renderPrintModal(memo) {
       return `
         <div class="fixed inset-0 z-50 bg-slate-900/75 flex items-center justify-center p-4 overflow-y-auto">
-          <div class="bg-white rounded-2xl max-w-3xl w-full border border-slate-200 shadow-2xl overflow-hidden my-8">
-            <div class="px-6 py-3.5 bg-slate-900 text-white flex items-center justify-between no-print">
+          <div class="bg-white rounded-3xl max-w-3xl w-full border border-slate-200 shadow-2xl overflow-hidden my-8">
+            <div class="px-6 py-4 bg-slate-900 text-white flex items-center justify-between no-print">
               <span class="text-xs font-semibold">🖨️ ตัวอย่างกระดาษบันทึกข้อความราชการ/องค์กร (พร้อมพิมพ์หรือ Save as PDF)</span>
               <div class="flex gap-2">
-                <button onclick="window.print()" class="px-3.5 py-1.5 rounded-lg bg-indigo-600 text-white text-xs font-bold">สั่งพิมพ์ / Save as PDF</button>
-                <button onclick="togglePrint(false)" class="px-3 py-1.5 rounded-lg bg-slate-800 text-slate-300 text-xs">ปิดหน้าต่าง</button>
+                <button onclick="window.print()" class="px-4 py-2 rounded-xl bg-indigo-600 text-white text-xs font-bold">สั่งพิมพ์ / Save as PDF</button>
+                <button onclick="togglePrint(false)" class="px-3 py-2 rounded-xl bg-slate-800 text-slate-300 text-xs">ปิดหน้าต่าง</button>
               </div>
             </div>
             <div class="p-10 space-y-6 text-slate-900 bg-white">
@@ -1082,7 +1243,7 @@
                   <h2 class="text-2xl font-bold">บันทึกข้อความ</h2>
                   <p class="text-xs text-slate-600">ระบบสารบรรณอิเล็กทรอนิกส์ (E-Office Official Memorandum)</p>
                 </div>
-                <div class="border border-slate-400 rounded-lg px-3 py-2 text-xs text-right">
+                <div class="border border-slate-400 rounded-xl px-4 py-2 text-xs text-right">
                   <div><strong>เลขทะเบียนสารบรรณ:</strong> ${memo.documentNumber || "รอสารบรรณออกเลข"}</div>
                   <div><strong>ชั้นความเร็ว:</strong> ${memo.urgency}</div>
                 </div>
@@ -1098,12 +1259,12 @@
               </div>
               <div class="text-sm leading-relaxed whitespace-pre-line pt-2 min-h-[120px]">${memo.content}</div>
               <div class="grid grid-cols-2 gap-6 pt-8 border-t border-slate-300 text-xs text-center">
-                <div class="p-4 border border-slate-200 rounded-xl space-y-1">
+                <div class="p-4 border border-slate-200 rounded-2xl space-y-1">
                   <div class="font-bold">ผู้เสนอเรื่อง</div>
                   <div class="italic text-base font-semibold text-indigo-900 py-1">${memo.requesterName}</div>
                   <div>(${memo.requesterName})</div>
                 </div>
-                <div class="p-4 border border-slate-200 rounded-xl space-y-1">
+                <div class="p-4 border border-slate-200 rounded-2xl space-y-1">
                   <div class="font-bold">ผลการพิจารณา / ลายมือชื่ออิเล็กทรอนิกส์</div>
                   ${memo.status === "Approved" ? `
                     <div class="text-emerald-700 font-bold">✓ อนุมัติแล้ว (APPROVED)</div>
